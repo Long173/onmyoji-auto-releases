@@ -4,6 +4,92 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.3
+
+### Mỗi cửa sổ chạy một tác vụ, không còn chuỗi tác vụ
+
+Trước đây mỗi cửa sổ giữ một **danh sách** tác vụ và tự chạy mục kế tiếp khi
+xong mục trước. Đã bỏ hẳn, vì không ai xâu chuỗi tác vụ — người ta mở đúng phần
+mình cần rồi chạy.
+
+Cái chuỗi đó còn gây một lỗi khó chịu: bấm **Bắt đầu** ngay trên trang Ném đậu
+lại khởi động Phá Kết Giới, còn trang Ném đậu thì hiện `Trong hàng chờ`.
+
+Thay đổi bạn sẽ thấy:
+
+- Trang chủ: cột **"Chuỗi tác vụ"** thành **"Tác vụ"**, mỗi cửa sổ một thẻ.
+- Trên trang một tác vụ, nút **✕** (bỏ tác vụ) không còn — cửa sổ luôn có đúng
+  một tác vụ, muốn đổi thì bấm **→ tên cửa sổ** ở trang tác vụ khác.
+- **Bắt đầu tất cả** trên trang một tác vụ chỉ chạy cửa sổ đang đặt tác vụ đó,
+  không kéo cửa sổ đang làm việc khác sang.
+- Trạng thái `Trong hàng chờ` không còn tồn tại.
+
+Cấu hình cũ **không mất**: thiết lập do bản trước ghi ra là một danh sách, và
+app đọc mục đầu tiên còn tồn tại làm tác vụ của cửa sổ đó.
+
+### Ném đậu: ngắm vào thức thần thay vì rải đều
+
+Bot dựng một thư viện màu của các thức thần **thường** rồi ném vào những con nó
+**không** nhận ra — vì con hiếm chỉ ghé một vòng rồi không quay lại, còn con
+thường thì lặp lại, nên học con thường mới tổng quát hoá được.
+
+Đo trên game thật: tỷ lệ hình bóng bị ném giảm từ **100%** (rải mù) xuống
+**8.2%**, tức tập trung gấp 12 lần.
+
+Nói thẳng phần chưa đạt: qua 30 vòng thu 411 mảnh, **chưa mảnh SSR/SP nào**, và
+tổng mảnh mỗi vòng ngang với rải mù. Ngắm đã đúng nhưng chưa chứng minh được
+việc ném trúng con hiếm cho ra mảnh của nó.
+
+### Thư viện nhận dạng gọn lại
+
+Thư viện ảnh 4.769 tấm (146 MB) được đóng thành một file chữ ký **1.5 MB**, nạp
+trong 0.03 giây thay vì giải mã từng ảnh.
+
+---
+
+## 3.2
+
+### Sửa lỗi Phá Kết Giới không chạy trên máy để display scaling khác 100%
+
+Trên laptop để **125%**, Phá Kết Giới báo "tìm thấy quái" liên tục nhưng bấm
+vào không mở được thẻ nào, rồi bấm loạn xạ vào chỗ trống.
+
+Game không nhận biết DPI, nên ở 125% Windows chạy nó ở chế độ ảo hoá: game tin
+rằng khung hình của nó là 898×507 và vẽ đúng ngần ấy, còn app — vốn nhận biết
+DPI — hỏi Windows thì được trả lời 1122×633, vì đó là kích thước tính bằng
+điểm ảnh thật trên màn hình. **Cả hai con số đều đúng. Trộn chúng vào nhau thì
+không.**
+
+Hậu quả đo được trên màn hình 125%:
+
+- Ảnh chụp về là tấm 1122×633 với nội dung game nằm gọn ở **góc trên-trái
+  898×507**, phần còn lại đen. Toàn bộ giao diện game nhỏ hơn ảnh mẫu 0.8 lần.
+  `start.png` chỉ đạt **0.36** trong khi nút Attack đang hiện rõ trên màn hình.
+- Tệ hơn: `section.png` đạt **0.91** khi khớp vào **vùng nền trống**. Bot bấm
+  đúng chỗ trống đó, không thẻ quái nào mở ra, và vòng lặp đứng im.
+- Click gửi đi bị Windows quy đổi lại theo DPI của **luồng gửi**. Cùng một toạ
+  độ, gửi từ luồng nhận biết DPI thì *không có gì xảy ra*; gửi từ luồng không
+  nhận biết thì vào trận.
+
+Giờ mọi thao tác đo đạc, chụp hình và bấm đều chạy trong không gian toạ độ của
+game. Cùng màn hình đó, sau khi sửa: `section.png` **0.991**, `start.png`
+**0.986** — bằng đúng máy 100%. Đã chạy thử trọn vòng ở 125%: vào trận, đánh
+xong, nhận thưởng, sang quái tiếp.
+
+Giao diện của app vẫn nét, vì chỉ luồng nói chuyện với game mới đổi chế độ.
+
+Kèm theo:
+
+- **Resize theo client, không theo kích thước cửa sổ ngoài.** Trước đây app đặt
+  kích thước ngoài cố định 1138×672 — con số chỉ đúng trên đúng một máy, nơi
+  viền cửa sổ ăn 16×39. Giờ app đo viền của chính cửa sổ đó rồi cộng vào.
+- **Không bấm vào chỗ trống nữa.** Nút tấn công vốn được bấm bất kể điểm khớp,
+  vì ngay sau khi mở thẻ quái nó còn đang hiện ra. Giờ có sàn: dưới ngưỡng đó
+  nghĩa là nút *không có trên màn hình*, app ghi log rõ lý do và bỏ lượt.
+- **Log ghi thêm `dpi=` và `children=`** của cửa sổ game, để chẩn đoán từ xa.
+
+---
+
 ## 3.1
 
 ### ⚠️ Bản này phải cài tay một lần
