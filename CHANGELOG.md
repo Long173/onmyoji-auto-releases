@@ -4,6 +4,37 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.4
+
+### Sửa lỗi Phá Kết Giới báo "hết vé" khi vẫn còn vé
+
+Bot dừng và báo hết vé trong khi tài khoản còn 6 vé.
+
+Bộ đếm vé hiện dạng `6/30`. Bot đọc nó bằng cách cắt chữ số đầu tiên rồi so
+với một ảnh mẫu chữ `0`. Đo trên chính màn hình đang lỗi:
+
+| chữ số | điểm so với mẫu `0` |
+| --- | --- |
+| **`6`** của người dùng | **0.745** |
+| `0` thật (trong `30`) | 0.926 |
+
+Ngưỡng tin là **0.72**, nằm dưới cả hai — nên `6` bị đọc thành `0`. Ghi chú
+trong mã còn khẳng định "các chữ khác đều dưới 0.5", nhưng con số đó chỉ đo
+trên `/`, `3`, `0` của chuỗi `0/30`, chưa từng thử với `6`.
+
+**Cách sửa không phải là nâng ngưỡng.** Nâng lên 0.85 tách được 0.745 khỏi
+0.926, nhưng biên chỉ còn 0.08 và chữ `8` cũng tròn — sẽ vấp lại.
+
+Giờ bộ đếm không còn tự mình kết thúc một lượt chạy. Đọc ra 0 ba lần liên tiếp
+thì bot **bấm đánh một kết giới** và xem kết quả:
+
+- **trận bắt đầu** → còn vé, kết quả đọc sai, bỏ qua và chạy tiếp
+- **không có trận nào** → hết vé thật, kết thúc
+
+Một trận diễn ra là bằng chứng đã tiêu được vé — thứ mà bộ đếm chỉ đoán.
+
+---
+
 ## 3.3
 
 ### Mỗi cửa sổ chạy một tác vụ, không còn chuỗi tác vụ
