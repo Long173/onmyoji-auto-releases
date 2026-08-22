@@ -4,6 +4,57 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.5
+
+### Bản vá 3.4 không hoạt động — đây là bản thay
+
+3.4 nói rằng khi bộ đếm đọc ra 0 thì bot sẽ thử đánh một trận để xác nhận. Phần
+"thử đánh" chạy đúng, nhưng phần "xác nhận" thì không: bằng chứng "đã có trận"
+được gắn vào một hàm **chưa từng chạy một lần nào** trên máy thật.
+
+| trong log của một tài khoản thật | số lần |
+| --- | --- |
+| màn hình "đang trong trận" (chỗ gắn bằng chứng) | **0** |
+| trận kết thúc | 281 |
+| nhận thưởng | 451 |
+
+Nên phép thử luôn kết luận hết vé — đúng thứ nó ra đời để tránh. Giờ bằng chứng
+gắn vào **mọi** màn hình chứng minh đã có trận: kết thúc trận, nhận thưởng,
+banner đang đánh, và cả thua trận (thua thì vé vẫn mất).
+
+### Dùng chính lời game nói làm bằng chứng
+
+Khi hết vé, game hiện chữ **"Not enough Realm Challenge Passes"**. Bot giờ đọc
+câu đó — khớp 1.000 trên khung gốc so với 0.381 trên màn hình khác.
+
+Đây là bằng chứng trực tiếp, khác hai cách cũ đều là suy đoán: đọc chữ số thì
+đoán sai được (chữ `6` đạt 0.745 so với mẫu `0`, trên ngưỡng 0.72), còn "không
+thấy trận nào" chỉ nói *có gì đó không diễn ra*, không nói *vì sao*. Có câu
+thông báo thì bot biết ngay, không cần đọc số và không cần thử ba lần.
+
+### Sửa lỗi vé không giảm dù bot chạy liên tục
+
+Bấm Đánh xong bot trả về ngay, một giây sau đã bấm sang kết giới khác — lúc bàn
+cờ đang biến mất, nên cú bấm rơi vào chỗ trống. Trong log thật, **một nửa** số
+lần bấm thất bại như vậy:
+
+```
+14:43:50  Attack button score=0.943 — clicking
+14:43:51  Enemy found (section) at (684, 377)
+14:43:52  Attack button not on screen (score=0.370)
+```
+
+Vé đứng yên trong khi vòng lặp trông như đang làm việc. Giờ bot chờ bàn cờ rời
+khỏi màn hình trước khi đi tiếp, tối đa 6 giây.
+
+### Phép thử không còn rơi vào trạng thái chết
+
+Trước đây phép thử thất bại một lần là bot ngừng hỏi lại mãi mãi — một lượt chạy
+thật đã đứng ở `zero_reads=511` mà không đánh gì. Giờ nó thử tối đa 3 lần, và
+nếu bạn tắt tự-dừng thì nó tự đặt lại để còn phát hiện được khi vé hồi.
+
+---
+
 ## 3.4
 
 ### Sửa lỗi Phá Kết Giới báo "hết vé" khi vẫn còn vé
