@@ -4,6 +4,76 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.6
+
+### Thêm tác vụ Event
+
+Tab mới: **Event**. Chọn một chỗ, bấm Bắt đầu, tool tự nhấn chỗ đó lặp lại cho
+tới khi bạn dừng.
+
+Không có nhận diện hình ảnh nào ở đây, và đó là chủ ý. Chữ trên nút bắt đầu mỗi
+event một khác — event này ghi "Challenge", event khác ghi "Fight" — nên mẫu ảnh
+cắt từ một event là mẫu ảnh hết hạn cùng event đó.
+
+Cái không đổi là game luôn xếp nút "tiếp" vào **cùng một góc phải dưới**. Ghi lại
+một lượt chạy thật cho thấy một toạ độ phục vụ được cả sáu cú nhấn của một lượt:
+
+| màn hình | nút ở đó |
+| --- | --- |
+| màn event | Challenge / Fight / chữ khác |
+| bày đội hình | Ready |
+| xác nhận | trống Fight |
+| đang đánh | không rơi vào nút nào, auto tự đánh |
+| thắng + nhận thưởng | "Tap to continue" ×3 |
+
+Đo trên game thật: **11 lượt trong 150 giây**, mỗi lượt khoảng 13 giây, chỉ bằng
+một toạ độ. Mặc định 2 giây một nhấn cho ra 6,4 cú nhấn mỗi lượt — vừa đủ cho 6
+cú cần thiết. Chọn 1 giây được nếu muốn nhanh hơn.
+
+### Màn chọn toạ độ
+
+Không nhập số. Bấm thẳng lên ảnh cửa sổ game, vì không ai biết nút mình cần nằm
+ở "1030, 549" — người ta biết nó là *cái nút kia*.
+
+Bấm một tấm ảnh thì chỉ chính xác bằng độ lớn của tấm ảnh, nên có ba thứ để chọn
+được đúng từng điểm:
+
+- **kính lúp phóng 9×** chỗ con trỏ đang chỉ, đậu ở góc xa con trỏ nhất nên không
+  bao giờ che mất chỗ đang ngắm — bản đầu cho nó đi theo chuột và nó che đúng nút
+  cần nhắm, vì nút đó nằm ở góc phải dưới;
+- **mũi tên bàn phím** dịch từng điểm, giữ Shift dịch mười điểm;
+- ảnh vẽ **1:1** khi màn hình đủ chỗ, nên phần lớn trường hợp không có phép co
+  giãn nào nằm giữa con trỏ và điểm ảnh. Màn hình nhỏ thì ảnh co lại và chuột
+  không trỏ tới được từng điểm — đó là lúc dùng mũi tên.
+
+Dấu nhắm vẽ đen lồng trắng chứ không dùng màu vàng của app: đồ hoạ trong game
+vốn vàng và nút bắt đầu là giấy màu kem, nên dấu vàng biến mất đúng chỗ cần thấy
+nó — mà dấu không thấy được thì toạ độ không kiểm được.
+
+### Cảnh báo chỗ nhấn có thể tốn ngọc
+
+Hết vé, game mở bảng bán vé bằng ngọc. Chỗ nhấn mặc định nằm ngoài bảng đó nên
+cú nhấn chỉ tắt bảng, nhưng chỗ nhấn đặt vào giữa màn hình thì có thể bấm nhầm
+nút mua. Màn chọn toạ độ giờ báo đỏ khi điểm bạn chọn nằm trong vùng đó.
+
+Đo trên một event, nên hiểu là "chỗ này chắc chắn nguy hiểm", không phải "chỉ chỗ
+này mới nguy hiểm".
+
+### Số đếm là số lần nhấn, không phải số trận
+
+Tác vụ này không đọc màn hình nên không thể biết đã xong bao nhiêu trận. Thẻ cửa
+sổ ghi "lần nhấn" đúng như vậy — một con số lệch dần khỏi thực tế còn tệ hơn
+không có số nào.
+
+### Toạ độ lưu dưới dạng chữ
+
+PyQt không có kiểu lưu sẵn cho một cặp số, nên nó pickle cặp đó thành một khối
+`@Variant(...)` trong registry. Khối đó đọc lại được, nhưng nó cất một pickle vào
+chỗ mà người dùng đáng ra đọc thấy hai con số, và gắn giá trị đã lưu vào đúng
+phiên bản PyQt đã ghi nó. Giờ lưu thành `1030,549`.
+
+---
+
 ## 3.5
 
 ### Bản vá 3.4 không hoạt động — đây là bản thay
