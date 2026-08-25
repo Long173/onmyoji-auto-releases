@@ -18,3 +18,5 @@ Không cần quay lại trang này.
 
 File chưa mua chữ ký số nên SmartScreen cảnh báo. Bấm **More info** →
 **Run anyway**.
+
+Thấy hay thì cho mình 1 sao nha <3
