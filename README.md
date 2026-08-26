@@ -19,4 +19,14 @@ Không cần quay lại trang này.
 File chưa mua chữ ký số nên SmartScreen cảnh báo. Bấm **More info** →
 **Run anyway**.
 
+## Giấy phép
+
+**Tool này miễn phí. Nếu bạn phải trả tiền cho ai để có nó thì bạn đã bị lừa.**
+
+Bản chính thức luôn miễn phí tại <https://github.com/Long173/onmyoji-auto-releases>.
+
+Được dùng và chia sẻ lại thoải mái, nhưng không được dùng cho mục đích thương mại — không bán, không cho thuê, không gói kèm dịch vụ có thu phí.
+
+Giấy phép đầy đủ: [PolyForm Noncommercial 1.0.0](LICENSE).
+
 Thấy hay thì cho mình 1 sao nha <3
