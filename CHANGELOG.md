@@ -4,6 +4,48 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.11
+
+### Phá Kết Giới
+
+- Thua một trận thì tự bấm Refresh lấy bảng đối thủ mới. Trước đây tuỳ chọn này
+  không bao giờ chạy: cờ hẹn bị xoá trước khi kịp tìm nút, mà bảng mất khoảng
+  sáu giây mới quay lại. Nhận ra cả hai đường — bảng kết quả ngay sau trận, và
+  dấu thua còn lại trên thẻ khi về danh sách (ảnh mẫu mới `lost.png`).
+- Không còn kết giới nào đánh được thì tự đổi danh sách. Không phụ thuộc tuỳ
+  chọn trên: một bảng có thẻ đã thua sẽ không bao giờ tự đổi, vì thua không tính
+  là phá được kết giới.
+- Bỏ tuỳ chọn "Vị trí target". Một cú bấm ở đó không xếp được thức thần nào, chỉ
+  mở bảng chọn — một màn hình không ảnh mẫu nào nhận ra. Nó chạm tới 30 lần trên
+  11.244 cú tấn công, và luôn sau khi đã bấm Bắt đầu.
+- Bỏ nhánh bấm Refresh khi hết địch, cùng ảnh mẫu `rank.PNG`: game tự đổi bảng
+  khi đánh hết chín, và ảnh mẫu đó cắt từ cửa sổ lớn hơn khoảng 20% nên chưa
+  từng khớp.
+- Nút Ready không còn bấm vào giữa dòng chữ. `click.png` là ảnh cắt một chữ cái,
+  không phải cái nút.
+- Vòng lặp có đường thoát khi gặp màn hình không nhận ra. Trước đây nó đứng im
+  vô hạn — log có một vệt 12,5 phút không làm gì, chỉ dừng khi bấm tay.
+
+### Phụ bản ngự hồn
+
+- Bấm qua màn kết thúc ở góc phải dưới thay vì giữa màn hình, nơi game bày quà
+  và xếp thức thần. Bấm vào đó mở phần thưởng thay vì đóng màn, và làm kẹt lượt
+  chạy.
+- Số trận không còn cộng dư một khi bật lại tác vụ lúc màn kết thúc của lượt
+  trước còn hiện.
+
+### Giao diện
+
+- Nút Bắt đầu và Kết thúc gộp thành một ô, ở cả thẻ tác vụ lẫn bảng điều khiển.
+  Một cửa sổ chỉ có thể đang chạy hoặc không, nên nút kia luôn bị vô hiệu.
+
+### Công cụ
+
+- `publish_release.py` cảnh báo khi CHANGELOG.md không có mục cho phiên bản đang
+  phát hành.
+
+---
+
 ## 3.6
 
 ### Thêm tác vụ Event
