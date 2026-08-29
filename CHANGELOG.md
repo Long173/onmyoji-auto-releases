@@ -4,6 +4,25 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.12
+
+Sửa gấp một lỗi treo trong 3.11.
+
+### Phá Kết Giới
+
+- Bấm Refresh mở hộp thoại "Raid log progress will be reset if you refresh.
+  Continue?", và bảng đấu — kể cả dấu thua trên thẻ — vẫn khớp ảnh mẫu xuyên qua
+  hộp thoại đó. Vòng lặp đọc bảng trước khi trả lời hộp thoại, nên nó bấm
+  Refresh, thấy dấu thua vẫn còn, rồi bấm lại: một lượt chạy thật bấm 2200 lần,
+  mỗi 2,2 giây một lần, cho tới khi bị dừng tay. Tuỳ chọn gây ra lỗi này mặc
+  định bật, nên mọi bản 3.11 đều dính khi thua trận đầu tiên.
+- Hộp thoại giờ được trả lời trước khi bảng được đọc. Ảnh mẫu `ok.png` đo lại:
+  0,31–0,42 trên các màn thường, 0,992 trên hộp thoại.
+- Thêm chốt chặn: Refresh chỉ được bấm tối đa ba lần liên tiếp khi bảng không
+  đổi, rồi vòng lặp đứng lại và nhường cho các handler dọn màn hình.
+
+---
+
 ## 3.11
 
 ### Phá Kết Giới
