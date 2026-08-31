@@ -4,6 +4,43 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.13
+
+### Phá Kết Giới
+
+- Biết phân biệt bảng cá nhân và bảng của hội, và đọc đúng ô đếm của từng cái:
+  cá nhân đếm vé `0/30` ở góc phải trên, hội đếm lượt còn lại `0/6` ở khung
+  trái — chữ tối trên nền sáng, ngược hẳn.
+- Hết lượt ở bảng hội thì dừng. Trước đây tác vụ đọc ô vé của bảng cá nhân, mà
+  chỗ đó trên bảng hội là nền trống, nên nó không bao giờ thấy hết lượt.
+- Ở bảng hội, số đọc được là quyết định cuối, không đánh thử để xác nhận. Phép
+  thử đó chỉ có nghĩa ở bảng cá nhân, nơi hết vé thì game từ chối tấn công. Bảng
+  hội vẫn cho đánh khi đã hết lượt, nên một trận nổ ra không chứng minh gì — và
+  vòng lặp đã lấy đúng trận đó làm bằng chứng để bắt đầu lại, mãi không dừng.
+- Hai phép đọc trên không còn dựa vào độ sáng tuyệt đối. Một thẻ địch đang mở sẽ
+  làm tối cả bảng phía sau; tab đang chọn rớt từ 143.7 xuống 59.1 và ngưỡng cắt
+  chữ số cố định gộp cả ô thành một khối. Giờ so hai tab với nhau, và ngưỡng cắt
+  lấy từ chính ô ảnh.
+- Không còn tự bấm nút back khi gặp màn hình lạ. Một trận đánh không khớp ảnh
+  mẫu nào, nên "màn hình lạ" là trạng thái bình thường của mọi trận, và cú bấm
+  đó rơi vào giữa trận, mở ra hộp thoại rời trận.
+- Gặp hộp thoại "Sure you want to leave the battle?" thì bấm Huỷ. Toạ độ nút
+  Xác nhận không được lưu ở đâu cả, và có test giữ cho nó không xuất hiện.
+
+### Giao diện
+
+- Nút Bắt đầu và Kết thúc gộp thành một ô, ở cả đầu trang, thẻ cửa sổ và bảng
+  điều khiển. Trạng thái lẫn — vài cửa sổ đang chạy, vài cửa sổ chưa — vẫn hiện
+  "Bắt đầu", vì bấm lúc đó vô hại còn "Dừng" thì sẽ giết tác vụ đang chạy.
+- Cửa sổ kéo được cả bốn cạnh và bốn góc, do Windows tự xử lý qua `WM_NCHITTEST`
+  thay vì bắt sự kiện chuột — widget con không còn nuốt mất cạnh trên.
+- Bỏ viền bóng mờ quanh cửa sổ, và bỏ luôn lề trong suốt nó để lại.
+- Đổi cài đặt của một tác vụ đang chạy sẽ hiện hộp thoại nhắc phải dừng rồi bật
+  lại. Tác vụ đọc thiết lập đúng một lần lúc khởi động, nên trước đây việc đổi
+  giữa chừng trông như đã áp dụng.
+
+---
+
 ## 3.12
 
 Sửa gấp một lỗi treo trong 3.11.
