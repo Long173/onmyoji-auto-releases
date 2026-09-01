@@ -4,6 +4,34 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.14
+
+### Phá Kết Giới
+
+- Bỏ qua đối thủ mà game từ chối cho đánh — kết giới người khác đã phá, hoặc
+  đang hồi chiêu. Trước đây tác vụ đóng thẻ đó rồi mở lại đúng nó ở vòng sau,
+  vì cách chọn là "điểm khớp cao nhất" và thẻ đó luôn cao nhất. Một lượt chạy
+  thật kẹt như vậy cho tới khi bị dừng tay.
+- Chọn đối thủ theo thứ tự đọc thay vì theo điểm khớp. Trên bảng thật chín thẻ
+  chấm 0.943–0.990, nên hai thẻ đầu gần như không bao giờ tới lượt.
+- Bảng mà mọi đối thủ đều bị từ chối thì tính là hết địch, và được đổi danh
+  sách — thay vì ngồi trên một bảng đầy thẻ mà không mở cái nào.
+
+### Chung cho mọi tác vụ
+
+- Không bấm khi con trỏ chuột thật đang ở trên cửa sổ game. Cú bấm của tác vụ
+  không dời chuột thật, nên trong lúc nó giữ nút, mọi cử động chuột của người
+  dùng bị game hiểu là kéo màn hình — báo cáo trên tác vụ Event, bấm mỗi hai
+  giây suốt lượt chạy. Tắt được trong Cài đặt chung; đây là tuỳ chọn duy nhất
+  áp dụng ngay mà không cần bật lại tác vụ, vì nó được đọc ở thời điểm bấm.
+- Trước khi thả nút, con trỏ của game được đưa về đúng điểm đã bấm. Không ngăn
+  được game thấy chuột thật di chuyển, nhưng làm tổng kéo bằng không — đỡ cho
+  trường hợp chuột vào cửa sổ giữa lúc một cú bấm đang giữ.
+- Số lần bấm không ra trận chỉ đếm cú bấm thật sự gửi đi, nên việc để chuột lâu
+  trên game không bị hiểu nhầm thành đối thủ từ chối.
+
+---
+
 ## 3.13
 
 ### Phá Kết Giới
