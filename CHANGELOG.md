@@ -4,6 +4,33 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.15
+
+### Bách khoa
+
+- Ảnh thức thần chụp lại từ trong game — 241 con, thay cho ảnh cũ lấy trên
+  mạng. 29 con còn lại là thức thần collab không có trong bản game này.
+- Tab Hiệu ứng có icon từng hiệu ứng.
+- Đổi qua lại giữa các tab không còn khựng, và lần mở đầu vào ngay.
+- Tự đồng bộ khi mở Bách khoa, nếu có mạng.
+- Trang chi tiết: khung ảnh vừa đúng ảnh, không còn khoảng trống bên dưới.
+
+### Phá Kết Giới
+
+- Sửa lỗi đánh mãi một kết giới đã có người phá. Nút Đánh bị bấm sai ô, và ô
+  không đánh được thì bị ghi nhầm tên nên không bao giờ được bỏ qua.
+
+### Chung cho mọi tác vụ
+
+- Lúc ngừng bấm vì chuột đang ở trên cửa sổ game, tác vụ nằm im và nói rõ
+  trong nhật ký. Trước đây nó vẫn chạy và ghi như thể đang bấm.
+- Cửa sổ game đóng thì thẻ của nó tự mất, không còn báo lỗi liên tục trong
+  nhật ký. Nếu đang chạy tác vụ thì có thông báo.
+- Phím tắt chụp hình tự quét lại cửa sổ, không còn báo "chưa thấy cửa sổ game"
+  khi game đang mở.
+
+---
+
 ## 3.14
 
 ### Phá Kết Giới
