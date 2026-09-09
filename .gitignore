@@ -28,3 +28,8 @@ cache/
 # Windows
 Thumbs.db
 desktop.ini
+
+# Claude Code's per-machine state. settings.local.json is local by its own
+# naming convention, and the lock file holds a session id and a pid.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
