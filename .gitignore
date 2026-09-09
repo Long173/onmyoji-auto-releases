@@ -1,0 +1,30 @@
+# Build output. dist/ alone is 1.3 GB and is rebuilt by
+# `pyinstaller onmyoji_auto.spec --noconfirm`.
+dist/
+build/
+*.spec.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Credentials. .env.example is committed; the real one never is — it holds the
+# Supabase keys and the GitHub publish token.
+.env
+.env.local
+*.pem
+
+# What the running app produces on the user's own machine. Between them these
+# are over 2 GB, and the recordings and logs are of somebody's account.
+recordings/
+snapshots/
+logs/
+cache/
+
+# Windows
+Thumbs.db
+desktop.ini

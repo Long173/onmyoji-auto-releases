@@ -1,0 +1,16 @@
+# Runtime dependencies. Install with:  pip install -r requirements.txt
+opencv-python>=4.8      # template matching, image decode
+numpy>=1.24             # frame buffers
+pywin32>=306            # PrintWindow capture, PostMessage input, window enumeration
+PyQt5>=5.15             # interface
+keyboard>=0.13.5        # global F1 / F2 hotkeys
+
+# Supabase sync uses urllib from the standard library — no client package needed.
+
+# Development only:
+#   pip install pytest
+#   python -m pytest tests
+#
+# The bundled typefaces in assets/fonts were produced with fonttools:
+#   pip install fonttools
+# See tools/fetch_fonts.py.
