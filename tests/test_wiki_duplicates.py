@@ -17,7 +17,10 @@ Two things here are worth more than the rest:
 """
 from __future__ import annotations
 
+import collections
 import copy
+import re
+import unicodedata
 
 import pytest
 
@@ -48,6 +51,13 @@ def stats_of(hp=0, attack=0):
     }
 
 
+def _same_figure(name):
+    """A display name reduced to what identifies the figure."""
+    text = unicodedata.normalize("NFKD", name or "")
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
 # ── the table itself ────────────────────────────────────────────────────────
 
 
@@ -64,17 +74,47 @@ def test_a_pair_never_points_at_itself():
         assert keep != drop
 
 
-def test_every_id_in_the_table_exists(dataset):
-    """A typo makes a pair a no-op, and the duplicate stays on the list."""
+# Two entries of the table name shikigami this build of the game does not have
+# — collab figures the roster never carried. They are in the table because a
+# pre-rename cache can still hold them.
+ABSENT_FROM_THIS_BUILD = {"yumebiki_kochou_no_sei", "yumeyama_hakuzousu"}
+
+
+def test_the_kept_ids_are_the_pre_rename_ones(dataset):
+    """The table addresses old caches, and must not be "corrected" to match today.
+
+    This test used to assert the opposite — that every kept id was in the
+    bundled dataset — and it went red when the dataset was rebuilt on romaji
+    ids. The obvious repair is to translate the kept column into romaji, and it
+    would be a bad one: the kept id is the row the fold *keeps*, so pointing it
+    at a current id would make the fold delete a real record and merge it into
+    itself. See ``merge_rows`` — after migration 0011 a duplicate shares one id
+    and is found without any table; what is left for the table is the caches
+    written before that, which still carry the Vietnamese ids.
+
+    So the invariant is the reverse of what was written here: none of the kept
+    ids may be a live id.
+    """
     known = {row.id for row in dataset.dataset.shikigami}
-    dropped = {d for _, d in duplicates.PAIRS}
-    missing_keep = [k for k, _ in duplicates.PAIRS if k not in known]
-    # The dropped ids are gone from the loaded dataset by definition, so they
-    # are checked against the raw rows instead.
-    raw = {row.get("id") for row in dataset._read_bundled_rows()["shikigami"]}
-    assert not missing_keep, "kept ids not in the dataset: %s" % missing_keep
-    unknown = [d for d in dropped if d not in raw and d not in known]
-    assert not unknown, "dropped ids exist in neither place: %s" % unknown
+    live = [k for k, _ in duplicates.PAIRS if k in known]
+
+    assert not live, (
+        "these are addressed as pre-rename ids but exist in today's dataset, "
+        "so the fold would eat a real record: %s" % live)
+
+
+def test_the_dropped_ids_are_the_ones_in_use_today(dataset):
+    """The other column is the romaji id, which is what a record is called now.
+
+    A typo here cannot be caught against a cache nobody has a copy of, but it
+    can be caught against the live dataset: after the rename every dropped id
+    is a real shikigami, bar the collab entries this build never had.
+    """
+    known = {row.id for row in dataset.dataset.shikigami}
+    unknown = [d for _, d in duplicates.PAIRS
+               if d not in known and d not in ABSENT_FROM_THIS_BUILD]
+
+    assert not unknown, "dropped ids that name nothing: %s" % unknown
 
 
 # ── the fold ────────────────────────────────────────────────────────────────
@@ -164,10 +204,25 @@ def test_the_loaded_dataset_holds_no_duplicate_ids(dataset):
     assert len(ids) == len(set(ids))
 
 
-def test_none_of_the_folded_records_are_still_listed(dataset):
-    listed = {row.id for row in dataset.dataset.shikigami}
-    still_there = [d for _, d in duplicates.PAIRS if d in listed]
-    assert not still_there, "folded but still on the list: %s" % still_there
+def test_no_shikigami_is_listed_under_two_records(dataset):
+    """What "nothing is folded twice" has to mean now.
+
+    It used to be spelled as "none of the dropped ids appear", which stopped
+    being the same statement at migration 0011: the dropped id is the romaji
+    one, and after the rename that is precisely the id every survivor has. The
+    old spelling asked for 18 real records to be missing.
+
+    The thing worth protecting was never a list of ids — it is that the
+    encyclopaedia shows each figure once. That is asked directly here, by name,
+    so it keeps working through any future renaming.
+    """
+    counts = collections.Counter(
+        _same_figure(row.display_name) for row in dataset.dataset.shikigami
+        if _same_figure(row.display_name)
+    )
+    twice = [name for name, n in counts.items() if n > 1]
+
+    assert not twice, "listed under two records: %s" % twice
 
 
 def test_the_sp_count_matches_the_game(dataset):
@@ -201,9 +256,22 @@ def test_there_is_nothing_left_to_fold(dataset):
     folded ids come back, which is also how a re-synced or re-imported duplicate
     would be caught.
     """
-    listed = {row.id for row in dataset.dataset.shikigami}
-    back = [drop for _keep, drop in duplicates.PAIRS if drop in listed]
-    assert not back, "duplicates are back upstream: %s" % back
+    raw = [row.get("id") for row in dataset._read_bundled_rows()["shikigami"]]
+    paired = {i for i in raw if raw.count(i) > 1}
+    loaded = [row.id for row in dataset.dataset.shikigami]
+
+    # The bundled rows are *not* clean, and that is the current state rather
+    # than a problem: migration 0011 renamed both halves of every pair onto one
+    # id, so the file carries 287 rows under 269 ids. Written the other way
+    # round first — asserting the raw rows held no duplicate — this went red
+    # immediately, which is how the shape of the data got checked instead of
+    # assumed.
+    assert paired, "nothing is paired any more; the fold has stopped being used"
+    assert len(loaded) == len(set(loaded)), "the fold left an id behind twice"
+    for row_id in paired:
+        assert loaded.count(row_id) == 1, (
+            "%s went in twice and came out %d times" % (row_id,
+                                                        loaded.count(row_id)))
 
 
 # ── names the import got wrong ──────────────────────────────────────────────
@@ -228,10 +296,20 @@ def test_the_frogs_themselves_keep_their_names(dataset):
     assert all("frog" in (row.name_en or "").lower() for row in frogs)
 
 
-def test_a_correction_names_a_record_that_exists(dataset):
+def test_no_correction_is_needed_by_today_s_data(dataset):
+    """A correction here patches a cache; the fix for live data belongs upstream.
+
+    Both entries name pre-rename ids, and neither is in the dataset any more —
+    the frog names were fixed at the source. Read the other way round, this is
+    the rule: if a correction ever names a *live* id, the wrong name is still
+    in Supabase and is being papered over on the client, where a future re-sync
+    will simply bring it back.
+    """
     known = {row.id for row in dataset.dataset.shikigami}
-    missing = [i for i in duplicates.WRONG_NAMES if i not in known]
-    assert not missing, "corrections for records that are not there: %s" % missing
+    live = [i for i in duplicates.WRONG_NAMES if i in known]
+
+    assert not live, (
+        "corrections aimed at live records — fix the data upstream: %s" % live)
 
 
 def test_a_correction_replaces_whatever_was_there(dataset):
