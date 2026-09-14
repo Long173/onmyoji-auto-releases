@@ -663,8 +663,23 @@ class AutoWindow(FramelessWindow):
         Windows releases a process's hotkeys when it exits anyway, but not
         before — and during a restart the new copy would be refused its own
         combination by the old one.
+
+        The native event filter goes back too. It is installed on the
+        QApplication rather than on this window, so it outlives the window
+        unless it is taken off — and it holds a bound method of the very window
+        being torn down. A running app builds exactly one of these and then
+        exits, so nothing was ever seen. A test run builds one per test against
+        a shared QApplication, and Qt walks that list on the next native event:
+        straight into freed memory. The result is an access violation, not a
+        test failure, so it takes the whole run down with it and names an
+        innocent test on the way out.
         """
         self._hotkey.unbind()
+        if self._hotkey_filter is not None:
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                app.removeNativeEventFilter(self._hotkey_filter)
+            self._hotkey_filter = None
 
     def _stop_all_recordings(self) -> None:
         for hwnd in list(self._recorders):

@@ -234,6 +234,11 @@ def dashboard(qt_app, monkeypatch):
     monkeypatch.setattr(window, "_confirm_exit", lambda running: True)
     window._on_scan()
     yield window
+    # Dong that. `close_to_tray` mac dinh la True, nen close() thuong chi an cua
+    # so xuong khay: closeEvent thoat som va khong thao gi ca. Moi dashboard vi
+    # the de lai mot native event filter tren QApplication dung chung, va sau
+    # vai chuc test thi Qt duyet danh sach do di vao vung nho da giai phong.
+    window._force_close = True
     window.close()
 
 
