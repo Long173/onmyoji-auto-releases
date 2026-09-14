@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, Optional
 
 import realm_raid
 import tasks
-from auto.window_scanner import GameWindow, is_alive
+from auto.window_scanner import GameWindow, is_alive, open_if_minimised
 from game_control import CaptureError, GameControl
 
 logger = logging.getLogger(__name__)
@@ -205,20 +205,26 @@ class GameSession:
         control = self._ensure_control()
         # Every task drives the same client area, so the window is put at the
         # size the templates were captured at before any of them looks at it.
+        # Before the resize, because a minimised window has nothing to resize:
+        # `resize_game_window` measures its client, finds 0x0 and returns. The
+        # window has to be back on screen first.
+        #
+        # Opened rather than refused. Pressing Bắt đầu on a window says which
+        # window the user wants; being minimised is a state the app can undo
+        # for them, and the first version of this — which explained the problem
+        # and made them fix it by hand — was answering a request with homework.
+        opened = open_if_minimised(self.hwnd)
         realm_raid.resize_game_window(self.hwnd)
         control.refresh_metrics()
-        # Asked after the resize, because the resize is what would have fixed a
-        # window that was merely the wrong size. What it cannot fix is one that
-        # is minimised — it measures the client, finds nothing, and returns.
-        #
-        # Starting anyway is worse than refusing. Nothing can be captured and
-        # every point scales to (0, 0), so the run ends in a stack trace the
-        # user cannot act on; the one from the report read "cannot reshape
-        # array of size 2 into shape (0,0,4)".
-        if not control.client_is_measurable:
+        # Still the fallback, for a window that would not come back. Starting
+        # anyway is worse: nothing can be captured and every point scales to
+        # (0, 0), so the run ends in a stack trace the user cannot act on — the
+        # one from the report read "cannot reshape array of size 2 into shape
+        # (0,0,4)".
+        if not opened or not control.client_is_measurable:
             self.status = ERROR
-            self.message = ("Cửa sổ game đang thu nhỏ — hãy mở lại rồi bấm "
-                            "Bắt đầu")
+            self.message = ("Cửa sổ game đang thu nhỏ và không mở lại được — "
+                            "hãy mở nó lên rồi bấm Bắt đầu")
             raise RuntimeError(self.message)
 
         self._worker = spec.build(

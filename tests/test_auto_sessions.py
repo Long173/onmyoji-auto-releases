@@ -111,6 +111,73 @@ def test_descriptor_matches_the_design_caption():
     assert window(0x4A21C).descriptor == "HWND 0x0004A21C · 1122×633"
 
 
+# ── bringing a minimised window back ────────────────────────────────────────
+
+
+def fake_window_state(monkeypatch, iconic, client_after=(1122, 633), opens=True):
+    """Drives IsIconic/ShowWindow/GetClientRect without a real window."""
+    from auto import window_scanner
+
+    state = {"iconic": iconic, "shown": []}
+
+    def show(hwnd, flag):
+        state["shown"].append(flag)
+        if opens:
+            state["iconic"] = False
+
+    monkeypatch.setattr(window_scanner.win32gui, "IsIconic",
+                        lambda hwnd: state["iconic"])
+    monkeypatch.setattr(window_scanner.win32gui, "ShowWindow", show)
+    monkeypatch.setattr(
+        window_scanner.win32gui, "GetClientRect",
+        lambda hwnd: (0, 0, 0, 0) if state["iconic"]
+        else (0, 0, client_after[0], client_after[1]))
+    monkeypatch.setattr(window_scanner.time, "sleep", lambda _s: None)
+    return state
+
+
+def test_a_window_that_is_not_minimised_is_left_alone(monkeypatch):
+    """The common case, and it must cost nothing and touch nothing."""
+    from auto.window_scanner import open_if_minimised
+
+    state = fake_window_state(monkeypatch, iconic=False)
+
+    assert open_if_minimised(0x1234) is True
+    assert state["shown"] == [], "poked a window that was already open"
+
+
+def test_a_minimised_window_is_restored(monkeypatch):
+    from auto import window_scanner
+    from auto.window_scanner import open_if_minimised
+
+    state = fake_window_state(monkeypatch, iconic=True)
+
+    assert open_if_minimised(0x1234) is True
+    assert state["shown"] == [window_scanner.win32con.SW_RESTORE]
+
+
+def test_a_window_that_stays_shut_is_reported(monkeypatch):
+    """Rather than waiting forever, or claiming a client area that is not there."""
+    from auto.window_scanner import open_if_minimised
+
+    fake_window_state(monkeypatch, iconic=True, opens=False)
+
+    assert open_if_minimised(0x1234, timeout=0.05) is False
+
+
+def test_an_unanswerable_handle_is_not_called_minimised(monkeypatch):
+    """`is_alive` is what rejects a dead handle; this must not raise on one."""
+    from auto import window_scanner
+    from auto.window_scanner import is_minimised
+
+    def boom(hwnd):
+        raise OSError("no such window")
+
+    monkeypatch.setattr(window_scanner.win32gui, "IsIconic", boom)
+
+    assert is_minimised(0xDEAD) is False
+
+
 # ── scanner exclusions ──────────────────────────────────────────────────────
 # A title match alone caught this app's own window and an Explorer window
 # browsing the project folder, so both showed up as game windows.
@@ -345,16 +412,55 @@ def test_start_refuses_a_closed_window():
 # work" — the scaling had nothing to do with it.
 
 
-def test_start_refuses_a_minimised_window():
-    """Better to say so than to start a run that cannot see or click anything."""
+def minimised_session(monkeypatch, restores=True):
+    """A session whose window reports no client area, as a minimised one does.
+
+    ``restores`` says whether the stand-in for the restore actually works, so
+    both halves can be asked for: the window that comes back, and the one that
+    does not.
+    """
     session = GameSession(window())
     session._ensure_control()
     session._control.client_width = 0
     session._control.client_height = 0
+    asked = []
+
+    def open_it(hwnd, timeout=None):
+        asked.append(hwnd)
+        if not restores:
+            return False
+        session._control.client_width = 1122
+        session._control.client_height = 633
+        return True
+
+    monkeypatch.setattr(session_module, "open_if_minimised", open_it)
+    return session, asked
+
+
+def test_start_opens_a_minimised_window_rather_than_refusing(monkeypatch):
+    """Pressing Bắt đầu on a window is a request to run on it.
+
+    Refusing was the first answer and it is worse: the user has said which
+    window they want, and the only thing standing in the way is a state the app
+    can undo for them.
+    """
+    session, asked = minimised_session(monkeypatch)
+
+    session.start(raid_config())
+
+    assert asked == [session.hwnd], "never tried to open the window"
+    assert FakeWorker.instances, "did not start once the window was back"
+    assert session.status == RUNNING
+
+
+def test_start_refuses_a_window_that_will_not_come_back(monkeypatch):
+    """The fallback. Better to say so than to run blind on a 0x0 client."""
+    session, asked = minimised_session(monkeypatch, restores=False)
 
     with pytest.raises(RuntimeError, match="thu nhỏ"):
         session.start(raid_config())
 
+    assert asked == [session.hwnd]
     assert not FakeWorker.instances, "started a worker on a window with no client"
     assert session.status == ERROR
 

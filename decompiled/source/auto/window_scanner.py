@@ -9,15 +9,23 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import List, Sequence, Tuple
 
+import win32con
 import win32gui
 import win32process
 
 import dpi
 
 logger = logging.getLogger(__name__)
+
+# How long to wait for a window coming back off the taskbar to have a client
+# area, and how often to look. Measured here: a restore lands within a few
+# hundred milliseconds, so two seconds is slack rather than a real budget.
+OPEN_TIMEOUT_SECONDS = 2.0
+OPEN_POLL_SECONDS = 0.05
 
 DEFAULT_PATTERNS: Tuple[str, ...] = ("陰陽師", "Onmyoji")
 # Anything smaller is a tooltip, a splash or a stray tool window.
@@ -141,6 +149,56 @@ def is_gone(hwnd: int) -> bool:
         return not bool(win32gui.IsWindow(hwnd))
     except Exception:      # noqa: BLE001 - treat an unanswerable handle as live
         return False
+
+
+def is_minimised(hwnd: int) -> bool:
+    """True while the window is minimised to the taskbar.
+
+    Worth asking because a minimised window measures no client area at all —
+    ``GetClientRect`` answers 0x0 — and every coordinate the app scales is a
+    fraction of that. Measured on this machine: 1138x672 window / 1122x633
+    client while open, 160x28 / 0x0 once minimised.
+    """
+    try:
+        return bool(win32gui.IsIconic(hwnd))
+    except Exception:      # noqa: BLE001 - an unanswerable handle is not iconic
+        return False
+
+
+def open_if_minimised(hwnd: int, timeout: float = OPEN_TIMEOUT_SECONDS) -> bool:
+    """Bring a minimised window back, and wait until it has a client area.
+
+    Returns True once there is something to capture — immediately, for a window
+    that was never minimised.
+
+    The wait is a poll rather than a fixed sleep because the two ends are far
+    apart: a window that is already open answers on the first look, and one
+    coming back off the taskbar took up to a few hundred milliseconds here.
+
+    **This pulls the window to the front.** Both SW_RESTORE and
+    SW_SHOWNOACTIVATE were measured and neither leaves the focus alone —
+    un-minimising activates, and "no activate" applies to showing a hidden
+    window, not to restoring an iconic one. There is no quiet version of this,
+    so it is only done when the user has asked for the window by pressing Bắt
+    đầu on it.
+    """
+    if not is_minimised(hwnd):
+        return True
+    logger.info("Window 0x%08x is minimised; opening it to run on", hwnd)
+    try:
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+    except Exception:      # noqa: BLE001 - reported by the caller's own check
+        logger.debug("Could not restore 0x%08x", hwnd, exc_info=True)
+        return False
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with dpi.game_space():
+            _, _, width, height = win32gui.GetClientRect(hwnd)
+        if width > 0 and height > 0:
+            return True
+        time.sleep(OPEN_POLL_SECONDS)
+    return False
 
 
 def is_alive(hwnd: int) -> bool:
