@@ -4,6 +4,29 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.16
+
+### Cửa sổ game thu nhỏ
+
+- Cửa sổ đang thu nhỏ vẫn hiện trong danh sách, có ghi chữ "thu nhỏ".
+  Trước đây nó biến mất hẳn, không có thẻ để bấm.
+- Bấm Bắt đầu thì tool tự mở cửa sổ lên rồi chạy. Trước đây tác vụ báo lỗi
+  "cannot reshape array..." rồi dừng ngay.
+
+### Chung cho mọi tác vụ
+
+- Chụp màn hình lỗi giữa chừng thì tác vụ chờ một nhịp rồi thử lại, không còn
+  dừng hẳn.
+- Chuột để trên cửa sổ của tool không còn bị tính là để trên game, nên tác vụ
+  không đứng im vô cớ.
+
+### Bách khoa
+
+- Mộng Dẫn Hồ Điệp Tinh không còn bị liệt kê hai lần.
+- Ngự Soạn Tân và Ngọc Tảo Tiền không còn mang tên tiếng Anh của ếch.
+
+---
+
 ## 3.15
 
 ### Bách khoa
