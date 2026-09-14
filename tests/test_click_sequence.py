@@ -138,3 +138,38 @@ def test_no_drag_is_sent_while_the_cursor_is_over_the_game(posted, cursor):
 
     assert make_control().drag((100, 100), (400, 100)) is False
     assert posted == []
+
+
+# ── a capture that cannot be shaped ─────────────────────────────────────────
+
+
+def test_a_zero_sized_client_raises_a_capture_error(monkeypatch):
+    """Every loop already knows how to wait out a CaptureError and retry.
+
+    None of them knows what to do with a ValueError, so one escaping here ends
+    the task outright — which is what a user saw twice in a row on a minimised
+    window: "Event clicker crashed ... cannot reshape array of size 2 into
+    shape (0,0,4)".
+
+    The reshape sat outside the try that turns capture trouble into
+    CaptureError, so the one line most likely to disagree with the window's
+    measurements was the one line not covered by it.
+    """
+    from game_control import CaptureError
+
+    control = make_control()
+    control.client_width = 0
+    control.client_height = 0
+    # Set, because bare_control leaves them off and the AttributeError that
+    # caused was itself being turned into CaptureError — the first version of
+    # this test passed without ever reaching the line it is about.
+    control.border_left = 0
+    control.border_top = 0
+    monkeypatch.setattr(GameControl, "_ensure_dc", lambda self: None)
+    monkeypatch.setattr(GameControl, "_render_window", lambda self: False)
+    control._src_dc = object()
+    control._client_dc = type("DC", (), {"BitBlt": lambda *a, **k: None})()
+    control._client_bmp = type("BMP", (), {"GetBitmapBits": lambda *a, **k: bytes(2)})()
+
+    with pytest.raises(CaptureError):
+        control.full_shot()

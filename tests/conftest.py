@@ -159,9 +159,23 @@ class SpyWorker(threading.Thread):
 
 
 class FakeControl:
+    """Stands in for GameControl in the UI tests.
+
+    Its surface has to keep up with the real one. When
+    ``client_is_measurable`` was added and not mirrored here, reading it raised
+    AttributeError inside ``GameSession.start``; the manager collected that as
+    a per-window error, the dashboard answered with a modal QMessageBox, and an
+    offscreen modal took the whole run down with an access violation. The
+    symptom was three files away from the change.
+    """
+
     def __init__(self, hwnd):
         self.client_width, self.client_height = 1122, 633
         self.closed = False
+
+    @property
+    def client_is_measurable(self):
+        return self.client_width > 0 and self.client_height > 0
 
     def describe(self):
         return "fake control"

@@ -113,6 +113,18 @@ class GameControl:
         self.border_left = (self.window_width - client_right) // 2
         self.border_top = self.window_height - client_bottom - self.border_left
 
+    @property
+    def client_is_measurable(self) -> bool:
+        """Whether the window has a client area to capture and click in.
+
+        False for a minimised window: Windows parks one off-screen and reports
+        a window rect of about 160x25 with a client rect of nothing at all.
+        Every coordinate the app scales is then multiplied by 0/1122, so the
+        whole board collapses onto (0, 0) — which is how an Event clicker came
+        to be logged as "point=(0, 0)" before it died.
+        """
+        return self.client_width > 0 and self.client_height > 0
+
     def refresh_metrics(self) -> None:
         """Re-read the window geometry after it was moved or resized.
 
@@ -324,6 +336,18 @@ class GameControl:
                     win32con.SRCCOPY,
                 )
                 raw = self._client_bmp.GetBitmapBits(True)
+            # Inside the guard, not after it. This is the line most likely to
+            # disagree with the window's own measurements — the buffer is
+            # whatever the bitmap holds and the shape is whatever the client
+            # rect last said — and it was the one line not covered.
+            #
+            # A minimised window measures no client area at all, so this became
+            # "cannot reshape array of size 2 into shape (0,0,4)". Every loop
+            # knows how to wait out a CaptureError and try again; none of them
+            # knows what to do with a ValueError, so it ended the task instead.
+            image = np.frombuffer(raw, dtype=np.uint8).reshape(
+                self.client_height, self.client_width, 4
+            )
         except Exception as exc:
             # Device contexts go stale when the window is resized or recreated.
             # Drop them so the next attempt rebuilds from scratch.
@@ -331,9 +355,6 @@ class GameControl:
             self.close()
             raise CaptureError(str(exc)) from exc
 
-        image = np.frombuffer(raw, dtype=np.uint8).reshape(
-            self.client_height, self.client_width, 4
-        )
         if gray:
             return cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
         colour = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)

@@ -67,6 +67,10 @@ class FakeControl:
         self.closed = False
         self.refreshed = 0
 
+    @property
+    def client_is_measurable(self):
+        return self.client_width > 0 and self.client_height > 0
+
     def describe(self):
         return "fake control"
 
@@ -320,6 +324,38 @@ def test_start_refuses_a_closed_window():
     with pytest.raises(RuntimeError):
         session.start(raid_config())
 
+    assert session.status == ERROR
+
+
+# A game window that is minimised measures 160x25 of *window* and nothing at
+# all of client — Windows parks it off-screen at (-32000, -32000) and reports
+# that rect verbatim. Taken from a user's log, at 200% display scaling:
+#
+#   Event clicker starting — point=(0, 0) ... window=157x25 client=0x0
+#                            border=(78,-53) dpi=200%
+#   WARNING Client area is 0x0 but the point was saved against 1122x633
+#   ERROR   Event clicker crashed
+#   ValueError: cannot reshape array of size 2 into shape (0,0,4)
+#
+# Three separate things went wrong and only the third was visible. The task was
+# allowed to start on a window with no client area; every coordinate was then
+# scaled by 0/1122 and came out as (0, 0); and the capture died on a reshape
+# that no caller is prepared to catch. The user restored the window and the
+# same task ran fine, which is how it came to be reported as "200% doesn't
+# work" — the scaling had nothing to do with it.
+
+
+def test_start_refuses_a_minimised_window():
+    """Better to say so than to start a run that cannot see or click anything."""
+    session = GameSession(window())
+    session._ensure_control()
+    session._control.client_width = 0
+    session._control.client_height = 0
+
+    with pytest.raises(RuntimeError, match="thu nhỏ"):
+        session.start(raid_config())
+
+    assert not FakeWorker.instances, "started a worker on a window with no client"
     assert session.status == ERROR
 
 
@@ -847,3 +883,41 @@ def test_an_open_window_is_neither(monkeypatch):
 
     assert scanner.is_alive(1) is True
     assert scanner.is_gone(1) is False
+
+
+# ── the stand-in has to keep up with the real thing ─────────────────────────
+
+
+def test_every_control_attribute_the_session_reads_exists_on_the_fakes():
+    """A fake that has fallen behind does not fail; it takes the run down.
+
+    `client_is_measurable` was added to GameControl and to this file's
+    FakeControl, and not to conftest's. Reading it raised AttributeError inside
+    GameSession.start, the manager collected that as a per-window error, the
+    dashboard answered with a modal QMessageBox, and an offscreen modal ended
+    the process with an access violation — eleven test files away from the
+    change, with no failing assertion anywhere.
+
+    So the rule is checked instead of remembered: whatever `session.py` reads
+    off a control, both stand-ins must have.
+    """
+    import ast
+    import inspect
+    from pathlib import Path
+
+    from conftest import FakeControl as ConftestControl
+
+    source = Path(session_module.__file__).read_text(encoding="utf-8")
+    wanted = {
+        node.attr
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "control"
+        and not node.attr.startswith("_")
+    }
+    assert wanted, "no control attributes found; the scan has stopped working"
+
+    for fake in (FakeControl, ConftestControl):
+        missing = sorted(a for a in wanted if not hasattr(fake, a))
+        assert not missing, "%s is missing %s" % (fake.__module__, missing)

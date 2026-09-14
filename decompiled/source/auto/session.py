@@ -207,6 +207,19 @@ class GameSession:
         # size the templates were captured at before any of them looks at it.
         realm_raid.resize_game_window(self.hwnd)
         control.refresh_metrics()
+        # Asked after the resize, because the resize is what would have fixed a
+        # window that was merely the wrong size. What it cannot fix is one that
+        # is minimised — it measures the client, finds nothing, and returns.
+        #
+        # Starting anyway is worse than refusing. Nothing can be captured and
+        # every point scales to (0, 0), so the run ends in a stack trace the
+        # user cannot act on; the one from the report read "cannot reshape
+        # array of size 2 into shape (0,0,4)".
+        if not control.client_is_measurable:
+            self.status = ERROR
+            self.message = ("Cửa sổ game đang thu nhỏ — hãy mở lại rồi bấm "
+                            "Bắt đầu")
+            raise RuntimeError(self.message)
 
         self._worker = spec.build(
             hwnd=self.hwnd,
