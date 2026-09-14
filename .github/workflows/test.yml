@@ -63,7 +63,7 @@ jobs:
         # test fail, và mọi file xếp sau nó sẽ không bao giờ được chạy. Chạy một
         # mình thì 10/10 xanh, nên thủ phạm là thứ một test trước đó để lại.
         run: >
-          python -m pytest tests -q --tb=short -rf
+          python -m pytest tests -v --tb=short -rf
           --ignore=tests/test_single_instance.py
 
       - name: Chạy test single-instance
