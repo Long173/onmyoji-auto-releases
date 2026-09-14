@@ -13,9 +13,13 @@ and the game window never needs focus.
 Source lives in `decompiled/source/`, not at the repo root. `decompiled/_legacy/`
 is the original decompiled build kept for reference — never edit or import it.
 
-`README.md` (Vietnamese, ~1000 lines) is the real design document; its
-"Lưu ý kỹ thuật" section records hard-won constraints. All user-facing strings
-and the README are Vietnamese; code, comments and docstrings are English.
+`docs/` (Vietnamese) is the real design documentation, and it is unusually
+good — read it before changing anything non-trivial. `docs/ghi-chu-ky-thuat.md`
+records constraints that were expensive to find and are invisible in the code;
+`docs/kien-truc.md` explains the task registry; `docs/dong-goi-va-phat-hanh.md`
+covers packaging and the self-update mechanism. `README.md` is the short
+user-facing front page. All docs and user-facing strings are Vietnamese; code,
+comments and docstrings are English.
 
 ## Commands
 
