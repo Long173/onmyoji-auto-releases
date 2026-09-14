@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, sip
 
 import theme
 from ui import controls
@@ -94,6 +94,28 @@ class ProgressiveGrid:
         # grid would sit there showing whatever was last painted.
         self._grid_host.setUpdatesEnabled(True)
 
+    def _is_gone(self) -> bool:
+        """Whether the widgets this fill writes into have been destroyed.
+
+        The token is not enough. It cancels a fill that a *newer* fill has
+        superseded, and says nothing about whether the view is still there —
+        but slicing guarantees there is always a moment with the next slice
+        queued in the event loop and nothing having run it yet. A view closed
+        in that moment leaves a queued call holding a live Python wrapper
+        around a deleted C++ layout, and every line below touches that layout.
+
+        It matters more than a stray traceback would suggest: PyQt turns an
+        exception raised inside a slot into an abort, so this did not fail, it
+        killed the interpreter with 0xC0000409 — taking every test queued
+        behind it down too, and holding CI red for seven runs.
+
+        Both are asked about. The host and the grid are children of the view,
+        so destroying the view destroys them; checking only the view would
+        still be right today, and would stop being right the moment anything
+        rebuilt the grid on its own.
+        """
+        return sip.isdeleted(self) or sip.isdeleted(self._grid)
+
     def _fill_slice(self, token: int, visible: bool = False) -> None:
         """Place cards for up to one budget, then hand the loop back.
 
@@ -104,6 +126,8 @@ class ProgressiveGrid:
         them overrunning a frame. One repaint happens when the fill ends.
         """
         if token != self._token:
+            return
+        if self._is_gone():
             return
         if not visible:
             # Disabled here, at the top of the second and later slices, rather

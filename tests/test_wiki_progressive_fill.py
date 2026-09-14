@@ -61,6 +61,48 @@ def drain(view, limit=400):
     raise AssertionError("the grid never finished filling")
 
 
+# ── a slice that arrives after its view is gone ─────────────────────────────
+#
+# Slicing the fill means there is always a moment where the next slice is
+# queued in the event loop and nothing has run it yet. If the view is destroyed
+# in that moment, the queued call still arrives — holding a Python reference to
+# a wrapper whose C++ layout has been deleted — and every line of _fill_slice
+# touches that layout.
+#
+# The token guards the wrong thing. It cancels a fill that a *newer* fill has
+# superseded; it says nothing about whether the widget is still there.
+#
+# This is not a test-only concern, though the test suite is where it was found:
+# it took the whole pytest process down with 0xC0000409 whenever
+# test_dashboard_lifecycle, test_dpi and test_snapshot ran in that order, and
+# CI had been red on it for seven runs. PyQt turns an exception raised inside a
+# slot into an abort, so the failure is not a traceback and a failed test — it
+# is the interpreter dying, taking every test after it with it.
+
+
+def test_a_slice_that_arrives_after_the_view_is_gone_does_nothing(grid):
+    """The queued call outlives the widget. It must notice and stop."""
+    from PyQt5 import sip
+
+    view, records = grid
+    view.render(records)
+    assert view.is_filling, "nothing was left queued, so there is nothing to test"
+    token = view._token
+
+    sip.delete(view)            # the C++ side goes; the pending slice does not
+
+    view._fill_slice(token)     # must not raise
+
+
+def test_a_live_view_still_fills(grid):
+    """The other half: the guard must not be a fill that never happens."""
+    view, records = grid
+    view.render(records)
+    drain(view)
+
+    assert placed(view) == len(records)
+
+
 def test_render_places_one_screenful_and_leaves(grid):
     """The whole point: the click returns, so the tab can paint.
 
