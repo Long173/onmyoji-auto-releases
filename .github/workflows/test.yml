@@ -1,0 +1,45 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Workflow này chỉ cần đọc mã. Khai rõ ở đây để PR từ fork của người lạ không
+# mượn được quyền ghi nào của repo.
+permissions:
+  contents: read
+
+# Push liên tiếp thì huỷ lần chạy cũ thay vì xếp hàng.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    # Windows thật, không phải Ubuntu. App nói chuyện với game qua pywin32,
+    # PrintWindow và PostMessage; trên Linux quá nửa bộ test sẽ tự bỏ qua bằng
+    # importorskip và một dấu xanh như thế không nói lên điều gì.
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Cùng phiên bản mà PyInstaller đóng vào bản phát hành.
+          python-version: '3.12'
+          cache: pip
+
+      - name: Cài dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Chạy test
+        # tests/conftest.py đã đặt QT_QPA_PLATFORM=offscreen, nên Qt dựng được
+        # widget mà không cần màn hình. Test nào cần checkout onmyoji_wiki thì
+        # tự bỏ qua.
+        run: python -m pytest tests -q
