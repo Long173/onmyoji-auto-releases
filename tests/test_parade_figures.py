@@ -45,6 +45,18 @@ def read(path):
     return cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_COLOR)
 
 
+# Anh goc nang hang tram MB va khong nam trong repo — tren may nguoi khac, va
+# tren CI, chung khong co. Bo qua chu khong de chay: mot test di qua `labelled()`
+# khi khong tim thay gi se PASS mot cach vo nghia, dung noi so ma
+# `test_the_pictures_behind_the_library_can_be_found` duoi day viet ra de canh.
+# Bo qua thi pytest bao "skipped" — su vang mat van hien ra, khong bi nuot mat.
+raw_library = pytest.mark.skipif(
+    not labelled(),
+    reason="khong co thu vien anh goc (dat %s de tro toi cho khac)"
+           % parade_figures.RAW_LIBRARY_VARIABLE,
+)
+
+
 # ── the signature ───────────────────────────────────────────────────────────
 
 
@@ -83,6 +95,7 @@ def test_two_colours_are_told_apart():
 # ── against the real, labelled sprites ──────────────────────────────────────
 
 
+@raw_library
 def test_every_labelled_sprite_reads_back_as_its_own_rarity():
     """Whatever else the matcher does, it must not disagree with the labels.
 
@@ -99,6 +112,7 @@ def test_every_labelled_sprite_reads_back_as_its_own_rarity():
     assert not wrong, "sprites filed under one rarity but read as another: %s" % wrong[:5]
 
 
+@raw_library
 def test_no_rare_figure_looks_like_a_common_one():
     """The failure that would empty the round quietly.
 
@@ -135,6 +149,7 @@ def test_no_rare_figure_looks_like_a_common_one():
     )
 
 
+@raw_library
 def test_every_rare_sprite_still_reads_as_rare():
     """Cheap, and it is the check that the common library has not swallowed
     the very figures it is there to leave behind."""
@@ -148,6 +163,7 @@ def test_every_rare_sprite_still_reads_as_rare():
     assert not swallowed, "rare sprites now read as common: %s" % swallowed[:5]
 
 
+@raw_library
 def test_the_pictures_behind_the_library_can_be_found():
     """Several tests below walk the labelled pictures, and every one of them
     passes trivially if the folder cannot be found — which is easy to arrange

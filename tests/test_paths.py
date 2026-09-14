@@ -43,7 +43,10 @@ def restore_paths():
 def test_a_checkout_keeps_one_root():
     assert not paths.FROZEN
     assert paths.APP_ROOT == paths.BUNDLE_ROOT
-    assert paths.APP_ROOT.name == "auto_ads"
+    # Khong kiem tra TEN thu muc: mot ban clone mang ten repo, hoac mang ten
+    # ma nguoi clone tu dat. Dieu dang khang dinh la day dung la goc checkout,
+    # tuc thu muc chua decompiled/source.
+    assert (paths.APP_ROOT / "decompiled" / "source").is_dir()
 
 
 def test_assets_resolve_under_the_bundle_root():

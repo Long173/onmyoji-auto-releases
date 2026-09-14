@@ -24,33 +24,50 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # Cả hai repo nằm cạnh nhau trong workspace, đúng cách người ta checkout
+      # trên máy mình — `paths.py` tìm dữ liệu wiki ở `<gốc>/../onmyoji_wiki`.
       - uses: actions/checkout@v4
+        with:
+          path: onmyoji-auto
+
+      # Chỉ lấy `assets` (dữ liệu + ảnh). Repo wiki nặng ~245 MB, phần còn lại
+      # là mã Flutter mà bộ test này không đụng tới. Không có bước này thì 25
+      # test dữ liệu wiki sẽ đỏ vì thiếu file chứ không phải vì sai.
+      - uses: actions/checkout@v4
+        with:
+          repository: Long173/onmyoji_wiki
+          path: onmyoji_wiki
+          sparse-checkout: assets
 
       - uses: actions/setup-python@v5
         with:
           # Cùng phiên bản mà PyInstaller đóng vào bản phát hành.
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: onmyoji-auto/requirements.txt
 
       - name: Cài dependencies
+        working-directory: onmyoji-auto
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
 
       - name: Chạy test
+        working-directory: onmyoji-auto
         # tests/conftest.py đã đặt QT_QPA_PLATFORM=offscreen, nên Qt dựng được
-        # widget mà không cần màn hình. Test nào cần checkout onmyoji_wiki thì
-        # tự bỏ qua.
+        # widget mà không cần màn hình.
         #
-        # test_single_instance.py tách riêng ở bước dưới: trên runner nó ngã
-        # bằng access violation, tức là cả tiến trình chết chứ không phải một
-        # test fail, và mọi file xếp sau nó sẽ không bao giờ được chạy.
+        # test_single_instance.py tách riêng ở bước dưới: chạy chung với cả bộ
+        # nó ngã bằng access violation — cả tiến trình chết chứ không phải một
+        # test fail, và mọi file xếp sau nó sẽ không bao giờ được chạy. Chạy một
+        # mình thì 10/10 xanh, nên thủ phạm là thứ một test trước đó để lại.
         run: >
           python -m pytest tests -q --tb=short -rf
           --ignore=tests/test_single_instance.py
 
       - name: Chạy test single-instance
+        working-directory: onmyoji-auto
         # Chạy kể cả khi bước trên đỏ, để một lần chạy cho biết đủ mọi vấn đề.
         if: always()
         run: python -m pytest tests/test_single_instance.py -q --tb=short -rf
