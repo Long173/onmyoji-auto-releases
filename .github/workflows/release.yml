@@ -1,0 +1,79 @@
+name: Release
+
+# Chỉ chạy khi có tag dạng v3.16. Đẩy code lên main thì chỉ chạy test —
+# phát hành phải là một hành động cố ý, vì nó gửi bản mới tới mọi máy đang cài.
+on:
+  push:
+    tags: ["v*"]
+
+# Workflow này tạo release, nên cần quyền ghi. GITHUB_TOKEN do GitHub tự cấp
+# cho từng lần chạy và hết hạn ngay sau đó — không cần PAT cá nhân nào.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      # Hai repo nằm cạnh nhau, đúng cách checkout trên máy mình: `paths.py`
+      # tìm dữ liệu wiki ở `<gốc>/../onmyoji_wiki`, và bản đóng gói nhúng nó vào.
+      - uses: actions/checkout@v4
+        with:
+          path: onmyoji-auto
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Long173/onmyoji_wiki
+          path: onmyoji_wiki
+          sparse-checkout: assets
+
+      - uses: actions/setup-python@v5
+        with:
+          # Cùng phiên bản mà máy build vẫn dùng.
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: onmyoji-auto/requirements.txt
+
+      - name: Cài dependencies
+        working-directory: onmyoji-auto
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pyinstaller
+
+      # Chặn cuối. Không phát hành bản có test đỏ — mỗi bản phát hành đều được
+      # hàng trăm máy tự tải về, và rút lại thì đã muộn.
+      - name: Chạy test
+        working-directory: onmyoji-auto
+        run: >
+          python -m pytest tests -q --tb=short -rf
+          --ignore=tests/test_single_instance.py
+
+      - name: Chạy test single-instance
+        working-directory: onmyoji-auto
+        run: python -m pytest tests/test_single_instance.py -q --tb=short -rf
+
+      # Tag v3.16 -> 3.16. publish_release.py tự dừng nếu số này khác
+      # theme.APP_VERSION, nên một tag đánh nhầm không ship được gì.
+      - name: Đọc phiên bản từ tag
+        id: version
+        shell: bash
+        run: echo "number=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Đóng gói
+        working-directory: onmyoji-auto
+        run: python -m PyInstaller onmyoji_auto.spec --noconfirm
+
+      # Ghi chú lấy từ mục tương ứng trong CHANGELOG.md, không truyền qua dòng
+      # lệnh: tiếng Việt đi qua argv trên Windows từng bị đổi sang codepage ANSI
+      # và ra "Cá»­a sá»•". Không có mục cho phiên bản này thì script dừng.
+      - name: Phát hành
+        working-directory: onmyoji-auto
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: >
+          python tools/publish_release.py ${{ steps.version.outputs.number }}
+          --from-changelog --upload

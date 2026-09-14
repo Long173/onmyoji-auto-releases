@@ -463,3 +463,78 @@ def test_no_changelog_at_all_is_not_a_false_reassurance(tmp_path, monkeypatch):
     monkeypatch.setattr(publisher, "CHANGELOG", tmp_path / "nope.md")
 
     assert publisher.changelog_covers("3.10") is False
+
+
+# ── release notes come out of the changelog ─────────────────────────────────
+#
+# They used to be typed on the command line, which is one place for them to be
+# wrong and another for them to be mangled: passing Vietnamese through argv
+# under Git Bash on Windows hands Python the bytes reinterpreted through the
+# ANSI codepage, so "Cửa sổ" reaches the release as "Cá»­a sá»•". Reading the
+# file the text already lives in has no such step, and stops the notes and the
+# changelog from drifting apart.
+
+CHANGELOG_SAMPLE = """# Changelog
+
+Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở trên cùng.
+
+---
+
+## 3.16
+
+### Cửa sổ game thu nhỏ
+
+- Cửa sổ đang thu nhỏ vẫn hiện trong danh sách.
+
+---
+
+## 3.15
+
+### Bách khoa
+
+- Ảnh thức thần chụp lại từ trong game.
+
+---
+"""
+
+
+def a_changelog_file(tmp_path):
+    path = tmp_path / "CHANGELOG.md"
+    path.write_text(CHANGELOG_SAMPLE, encoding="utf-8")
+    return path
+
+
+def test_the_notes_are_the_section_for_that_version(tmp_path):
+    notes = publisher.notes_from_changelog("3.16", a_changelog_file(tmp_path))
+
+    assert "Cửa sổ đang thu nhỏ vẫn hiện trong danh sách." in notes
+    assert "Ảnh thức thần" not in notes, "ran on into the previous version"
+
+
+def test_the_version_heading_and_the_rule_are_not_part_of_the_notes(tmp_path):
+    """Sub-headings stay — they are the shape of the notes.
+
+    Written first as "must not start with #", which is a different claim and a
+    wrong one: the section opens on "### Cửa sổ game thu nhỏ". What has to go
+    is the version's own heading, which the release page already shows, and the
+    horizontal rule, which belongs to the layout of the file.
+    """
+    notes = publisher.notes_from_changelog("3.16", a_changelog_file(tmp_path))
+
+    assert "## 3.16" not in notes
+    assert notes.startswith("### "), "lost the sub-headings"
+    assert "---" not in notes
+    assert notes == notes.strip()
+
+
+def test_an_older_version_can_still_be_read(tmp_path):
+    notes = publisher.notes_from_changelog("3.15", a_changelog_file(tmp_path))
+
+    assert "Ảnh thức thần" in notes
+    assert "thu nhỏ" not in notes
+
+
+def test_a_version_with_no_entry_is_refused(tmp_path):
+    """Publishing with empty notes is worse than not publishing yet."""
+    with pytest.raises(SystemExit):
+        publisher.notes_from_changelog("9.99", a_changelog_file(tmp_path))

@@ -326,6 +326,45 @@ def updater_module():
     return updater
 
 
+def notes_from_changelog(version: str, path: Optional[Path] = None) -> str:
+    """The changelog's own section for ``version``, without its heading.
+
+    The notes used to be typed on the command line. That is one place for them
+    to be wrong and another for them to be mangled: passing Vietnamese through
+    argv under Git Bash on Windows hands Python the bytes read back through the
+    ANSI codepage, so "Cửa sổ" reaches the release as "Cá»­a sá»•". Reading the
+    file the text already lives in has no such step — and it stops the release
+    notes and the changelog from saying different things, which is the failure
+    that actually costs something.
+
+    Exits rather than returning empty. A release published with no notes is one
+    the in-app banner has nothing to show for, and that is worse than a build
+    that stops and asks for a changelog entry.
+    """
+    path = path or CHANGELOG
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        sys.exit("Khong doc duoc %s: %s" % (path, exc))
+
+    # The heading of the section wanted, up to the heading of the next one —
+    # any "## ", not this version's successor, because there is no way to know
+    # what that is called.
+    match = re.search(
+        r"^##\s+%s\s*$(.*?)(?=^##\s|\Z)" % re.escape(version),
+        text, re.MULTILINE | re.DOTALL,
+    )
+    if match is None:
+        sys.exit("CHANGELOG.md chua co muc cho %s — viet no truoc khi phat hanh."
+                 % version)
+    # The horizontal rule belongs to the layout of the file, not to the notes.
+    body = re.sub(r"^-{3,}\s*$", "", match.group(1), flags=re.MULTILINE)
+    notes = body.strip()
+    if not notes:
+        sys.exit("Muc %s trong CHANGELOG.md dang rong." % version)
+    return notes
+
+
 def changelog_covers(version: str) -> bool:
     """Whether CHANGELOG.md has an entry for the version being released.
 
@@ -458,12 +497,21 @@ def main(argv=None) -> int:
         help="one line for the in-app banner — it shows the first 80 characters",
     )
     parser.add_argument(
+        "--from-changelog", action="store_true",
+        help="take the notes from CHANGELOG.md's section for this version",
+    )
+    parser.add_argument(
         "--body", default="",
         help="the full changelog for the GitHub release page; defaults to --notes",
     )
     parser.add_argument("--upload", action="store_true",
                         help="create the release on GitHub (needs GITHUB_TOKEN)")
     args = parser.parse_args(argv)
+    if args.from_changelog:
+        if args.notes:
+            print("Chi duoc chon mot: --notes hoac --from-changelog.")
+            return 1
+        args.notes = notes_from_changelog(args.version)
 
     import theme
     import updater
@@ -476,9 +524,16 @@ def main(argv=None) -> int:
         return 1
 
     if args.version != theme.APP_VERSION:
-        print("Canh bao: theme.APP_VERSION la %r nhung ban phat hanh %r.\n"
-              "          App se moi cap nhat lai chinh no."
-              % (theme.APP_VERSION, args.version))
+        message = ("theme.APP_VERSION la %r nhung ban phat hanh %r. "
+                   "App se moi cap nhat lai chinh no."
+                   % (theme.APP_VERSION, args.version))
+        if args.from_changelog:
+            # Nothing watches an automated run closely enough for a
+            # warning to be read, and a mismatch ships an update that
+            # re-offers itself for ever. Stop instead.
+            print("Loi: " + message)
+            return 1
+        print("Canh bao: " + message)
 
     target = github_target(updater.DEFAULT_MANIFEST_URL)
     if target is None:
