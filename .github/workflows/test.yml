@@ -42,4 +42,15 @@ jobs:
         # tests/conftest.py đã đặt QT_QPA_PLATFORM=offscreen, nên Qt dựng được
         # widget mà không cần màn hình. Test nào cần checkout onmyoji_wiki thì
         # tự bỏ qua.
-        run: python -m pytest tests -q
+        #
+        # test_single_instance.py tách riêng ở bước dưới: trên runner nó ngã
+        # bằng access violation, tức là cả tiến trình chết chứ không phải một
+        # test fail, và mọi file xếp sau nó sẽ không bao giờ được chạy.
+        run: >
+          python -m pytest tests -q --tb=short -rf
+          --ignore=tests/test_single_instance.py
+
+      - name: Chạy test single-instance
+        # Chạy kể cả khi bước trên đỏ, để một lần chạy cho biết đủ mọi vấn đề.
+        if: always()
+        run: python -m pytest tests/test_single_instance.py -q --tb=short -rf
