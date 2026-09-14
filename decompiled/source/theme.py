@@ -19,7 +19,7 @@ import fonts
 
 APP_NAME = "Onmyoji Tool"
 APP_SUBTITLE = "Trung tâm tác vụ"
-APP_VERSION = "3.15"
+APP_VERSION = "3.16"
 
 # Storage identifiers, deliberately left at the old name. These are not labels
 # — they are the address of the user's data:
