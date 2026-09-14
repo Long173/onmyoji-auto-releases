@@ -236,6 +236,21 @@ def merge_patches(live: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     return patches
 
 
+def delete_list() -> List[str]:
+    """Rows to remove from Supabase: the folded-away half of every pair.
+
+    Deduplicated, because one row can be dropped by two pairs — a figure whose
+    Vietnamese half was renamed has one survivor for a pre-rename cache and
+    another for the bundled file, and both name the same row to fold away.
+    Listing it twice would print it twice and ask Supabase to delete something
+    already gone.
+
+    A function rather than a comprehension at the call site so the test and the
+    script cannot drift apart about what gets deleted.
+    """
+    return list(dict.fromkeys(drop for _keep, drop in duplicates.PAIRS))
+
+
 def portrait_files() -> List[Tuple[str, Path]]:
     """(bucket key, local file) for each hand-entered record's portrait."""
     out = []
@@ -279,7 +294,7 @@ def main(argv=None) -> int:
     print()
 
     rest = Rest(url, key, args.apply)
-    drop_ids = [drop for _keep, drop in duplicates.PAIRS]
+    drop_ids = delete_list()
     fix_ids = sorted(duplicates.WRONG_NAMES)
     new_rows = [row_for_db(record) for record in additions.RECORDS]
 

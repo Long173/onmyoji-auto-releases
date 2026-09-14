@@ -111,11 +111,18 @@ def test_containers_go_as_empty_not_null():
 
 
 def test_the_rows_to_delete_are_the_folded_half_of_each_pair():
-    """One source of truth: the client patch and this script cannot disagree."""
-    from_script = [drop for _keep, drop in duplicates.PAIRS]
+    """One source of truth: the client patch and this script cannot disagree.
 
-    assert len(from_script) == 20
-    assert len(set(from_script)) == 20
+    The count used to be spelled out as 20 and is not asserted any more. A
+    figure whose Vietnamese half was renamed carries two pairs — one survivor
+    for a pre-rename cache, one for the bundled file — so the number of pairs
+    and the number of rows to delete stopped being the same thing. What has to
+    hold is that the script never deletes a row something is folded into.
+    """
+    from_script = push.delete_list()
+
+    assert from_script, "nothing to delete; the table has been emptied"
+    assert len(set(from_script)) == len(from_script), "an id listed twice"
     assert not set(from_script) & {keep for keep, _ in duplicates.PAIRS}
 
 

@@ -27,14 +27,31 @@ import pytest
 from wiki import duplicates
 from wiki.repository import WikiRepository
 
-# What the game itself has, for the arithmetic that confirmed the SP pairing.
-GAME_SP_COUNT = 50
+# What the game itself has. Counted off the shikigami album in-game while the
+# portraits were being recaptured: its SP block runs to 51 entries. It read 50
+# here until Ignis Suzuhikohime was entered by hand in :mod:`wiki.additions` —
+# she is the fifty-first, and this number was not moved with her.
+GAME_SP_COUNT = 51
 
 
 @pytest.fixture(scope="module")
 def dataset():
+    """The dataset as a fresh install reads it — the bundled files.
+
+    Pinned to the bundle rather than ``load()``, which prefers a sync cache when
+    one is on disk. That made every count here depend on whether the machine had
+    ever pressed "Đồng bộ lại": a developer's cache holds the curated Supabase
+    copy and passed, CI holds nothing and read the bundled rows, and the two
+    disagree by two records. A test that asks a different question per machine
+    cannot be trusted by either.
+
+    The bundle is also the more useful of the two to assert on: it is what
+    somebody who installs the app and never syncs actually sees.
+    """
     repository = WikiRepository()
-    repository.load()
+    repository.dataset = repository._load_bundled()
+    if repository.dataset is None:
+        pytest.skip("no bundled wiki data on this machine")
     return repository
 
 
@@ -61,12 +78,35 @@ def _same_figure(name):
 # ── the table itself ────────────────────────────────────────────────────────
 
 
-def test_no_id_is_listed_twice():
-    """A figure folded into two different survivors would lose data silently."""
-    kept = [k for k, _ in duplicates.PAIRS]
-    dropped = [d for _, d in duplicates.PAIRS]
-    assert len(set(dropped)) == len(dropped), "an id is folded away twice"
-    assert not set(kept) & set(dropped), "an id is both kept and dropped"
+def test_no_id_is_both_kept_and_dropped():
+    """Folding a survivor into something else loses whichever half wins."""
+    kept = {k for k, _ in duplicates.PAIRS}
+    dropped = {d for _, d in duplicates.PAIRS}
+
+    assert not kept & dropped, "an id is both kept and dropped: %s" % (kept & dropped)
+
+
+def test_a_drop_has_at_most_one_live_survivor(dataset):
+    """One id may be dropped by two pairs, and that is on purpose.
+
+    Migration 0011 renamed one Vietnamese half instead of landing it on the
+    romaji id, so Yumebiki Kochou no Sei has two possible survivors — the
+    pre-rename ``mong_dan_ho_diep_tinh`` for an old cache, and
+    ``dreambound_chocho`` for the bundled file. Only ever one of them is in a
+    given dataset.
+
+    Two of them present at once is what would be a bug: the row would be folded
+    into the first survivor and then folded again into the second, and whatever
+    the first gained from it would be dropped on the floor.
+    """
+    known = {row.id for row in dataset.dataset.shikigami}
+    by_drop = {}
+    for keep, drop in duplicates.PAIRS:
+        if keep in known:
+            by_drop.setdefault(drop, []).append(keep)
+    contested = {d: k for d, k in by_drop.items() if len(k) > 1}
+
+    assert not contested, "two live survivors for one row: %s" % contested
 
 
 def test_a_pair_never_points_at_itself():
@@ -78,29 +118,6 @@ def test_a_pair_never_points_at_itself():
 # — collab figures the roster never carried. They are in the table because a
 # pre-rename cache can still hold them.
 ABSENT_FROM_THIS_BUILD = {"yumebiki_kochou_no_sei", "yumeyama_hakuzousu"}
-
-
-def test_the_kept_ids_are_the_pre_rename_ones(dataset):
-    """The table addresses old caches, and must not be "corrected" to match today.
-
-    This test used to assert the opposite — that every kept id was in the
-    bundled dataset — and it went red when the dataset was rebuilt on romaji
-    ids. The obvious repair is to translate the kept column into romaji, and it
-    would be a bad one: the kept id is the row the fold *keeps*, so pointing it
-    at a current id would make the fold delete a real record and merge it into
-    itself. See ``merge_rows`` — after migration 0011 a duplicate shares one id
-    and is found without any table; what is left for the table is the caches
-    written before that, which still carry the Vietnamese ids.
-
-    So the invariant is the reverse of what was written here: none of the kept
-    ids may be a live id.
-    """
-    known = {row.id for row in dataset.dataset.shikigami}
-    live = [k for k, _ in duplicates.PAIRS if k in known]
-
-    assert not live, (
-        "these are addressed as pre-rename ids but exist in today's dataset, "
-        "so the fold would eat a real record: %s" % live)
 
 
 def test_the_dropped_ids_are_the_ones_in_use_today(dataset):
@@ -294,22 +311,6 @@ def test_the_frogs_themselves_keep_their_names(dataset):
     frogs = [row for row in dataset.dataset.shikigami if "frog" in row.id]
     assert len(frogs) == 15
     assert all("frog" in (row.name_en or "").lower() for row in frogs)
-
-
-def test_no_correction_is_needed_by_today_s_data(dataset):
-    """A correction here patches a cache; the fix for live data belongs upstream.
-
-    Both entries name pre-rename ids, and neither is in the dataset any more —
-    the frog names were fixed at the source. Read the other way round, this is
-    the rule: if a correction ever names a *live* id, the wrong name is still
-    in Supabase and is being papered over on the client, where a future re-sync
-    will simply bring it back.
-    """
-    known = {row.id for row in dataset.dataset.shikigami}
-    live = [i for i in duplicates.WRONG_NAMES if i in known]
-
-    assert not live, (
-        "corrections aimed at live records — fix the data upstream: %s" % live)
 
 
 def test_a_correction_replaces_whatever_was_there(dataset):

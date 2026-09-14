@@ -23,7 +23,10 @@ from wiki.repository import WikiRepository
 
 # Confirmed by the user against their own account, and by the game's own
 # "Collected: n/n" counters on the Shikigami Tales pages.
-GAME = {"SP": 50, "SSR": 62, "SR": 66, "R": 37, "N": 14}
+# Counted off the in-game shikigami album. SP was 50 here and is 51: the album
+# lists 51, and the fifty-first is Ignis Suzuhikohime — the record `additions`
+# exists to supply. Adding her moved the count and this line did not follow.
+GAME = {"SP": 51, "SSR": 62, "SR": 66, "R": 37, "N": 14}
 COLLAB = frozenset("""
 tanjiro_kamado nezuko_kamado zenitsu_agatsuma inosuke_hashibira gintoki_sakata
 kagura_sadaharu hatsune_miku kagamine_rin_len megurine_luka sakura_kinomoto
@@ -35,8 +38,22 @@ yato_no_kami peach_maki_karashi
 
 @pytest.fixture(scope="module")
 def loaded():
+    """The dataset as a fresh install reads it — the bundled files.
+
+    Pinned to the bundle rather than ``load()``, which prefers a sync cache when
+    one is on disk. That made every count here depend on whether the machine had
+    ever pressed "Đồng bộ lại": a developer's cache holds the curated Supabase
+    copy and passed, CI holds nothing and read the bundled rows, and the two
+    disagree by two records. A test that asks a different question per machine
+    cannot be trusted by either.
+
+    The bundle is also the more useful of the two to assert on: it is what
+    somebody who installs the app and never syncs actually sees.
+    """
     repository = WikiRepository()
-    repository.load()
+    repository.dataset = repository._load_bundled()
+    if repository.dataset is None:
+        pytest.skip("no bundled wiki data on this machine")
     return repository.dataset.shikigami
 
 

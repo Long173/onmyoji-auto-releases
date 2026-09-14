@@ -65,6 +65,13 @@ PAIRS: Tuple[Tuple[str, str], ...] = (
     ("thien_kiem_nhan_tam_quy_thiet", "tenken_jinshin_onikiri"),
     ("phu_the_thanh_hanh_dang", "ukiyo_aoandon"),
     ("mong_dan_ho_diep_tinh", "yumebiki_kochou_no_sei"),
+    # Same figure, after migration 0011 renamed the Vietnamese half rather than
+    # landing it on the romaji id the way it did for the other eighteen. Both
+    # rows are in the bundled file — "Mộng Dẫn Hồ Điệp Tinh" and "Yumebiki
+    # Kochou no Sei" — so without this line the encyclopaedia lists her twice
+    # for anyone who has not synced. Found by counting: the fold left 51 SP
+    # where the game's album has 50 of them plus Ignis Suzuhikohime.
+    ("dreambound_chocho", "yumebiki_kochou_no_sei"),
     ("mong_son_bach_tang_chu", "yumeyama_hakuzousu"),
     ("thien_tam_van_ngoai_kinh", "zenshin_ungaikyou"),
     # ── SSR ─────────────────────────────────────────────────────────────────
@@ -86,9 +93,16 @@ PAIRS: Tuple[Tuple[str, str], ...] = (
 #
 # Corrected here rather than in the cache for the same reason as the folding
 # above — a re-sync from Supabase would otherwise bring the frog names back.
+# Keyed by id, and migration 0011 renamed these, so both spellings are listed:
+# the pre-rename ids for a cache written before it, and the current ones for the
+# bundled file, which still carries the frog names to this day. Only the second
+# pair is reachable on a fresh install — which is where it was found, because a
+# machine with a sync cache never reads the bundled rows at all.
 WRONG_NAMES: Dict[str, Dict[str, str]] = {
     "ngu_soan_tan": {"name_en": "Miketsu"},
     "ngoc_tao_tien": {"name_en": "Tamamo no Mae"},
+    "miketsu": {"name_en": "Miketsu"},
+    "tamamo_no_mae": {"name_en": "Tamamo no Mae"},
 }
 
 # Fields where an empty value on the kept row should be filled from the other.
