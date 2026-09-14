@@ -90,7 +90,7 @@ Rời trang tác vụ là app nhả device context của các cửa sổ rảnh.
 | **→ tên cửa sổ** | Chuyển cửa sổ đó sang tác vụ của trang đang mở. Lựa chọn được nhớ theo **tiêu đề cửa sổ** |
 | **Nhật ký chạy** | Mở thư mục log |
 | **Cài đặt chung / F9** | Thiết lập đúng cho **mọi** tác vụ: lời mời truy, thông báo khi xong |
-| **F1 / F2** | Tạm dừng-tiếp tục / kết thúc tất cả |
+| **F1 / F2** | Tạm dừng-tiếp tục / kết thúc tất cả — chỉ khi cửa sổ app đang được chọn. Trước đây hai phím này còn được đăng ký toàn máy qua thư viện `keyboard`; đã gỡ, xem [Ghi chú kỹ thuật](ghi-chu-ky-thuat.md) |
 
 Trạng thái: `Sẵn sàng` · `Đang chạy` (chấm vàng nhấp nháy) · `Tạm dừng` ·
 `Hết vé` · `Mất cửa sổ`.

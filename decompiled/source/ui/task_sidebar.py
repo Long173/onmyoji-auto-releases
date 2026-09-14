@@ -135,7 +135,11 @@ class TaskSidebar(QtWidgets.QWidget):
         block.addWidget(Divider())
 
         self._hint = label(
-            "F1 TẠM DỪNG · F2 DỪNG HẾT", theme.mono(10, tracking=0.1), theme.TEXT_FAINT
+            # Noi ro pham vi: hai phim nay chi an khi cua so app dang duoc
+            # chon. Truoc day chung con duoc dang ky toan may nen dong chu
+            # khong kem dieu kien la dung; gio thi khong con.
+            "F1 TẠM DỪNG · F2 DỪNG HẾT — KHI ĐANG CHỌN APP",
+            theme.mono(10, tracking=0.1), theme.TEXT_FAINT
         )
         self._hint.setContentsMargins(0, 13, 0, 0)
         self._found = label(
@@ -159,9 +163,6 @@ class TaskSidebar(QtWidgets.QWidget):
         self._current = key
         for row_key, row in self._rows.items():
             row.set_active(row_key == key)
-
-    def set_hint(self, text: str) -> None:
-        self._hint.setText(text.upper())
 
     def update_counts(
         self, window_count: int, running_count: int, per_task: Dict[str, tuple]

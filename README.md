@@ -38,7 +38,7 @@ Một vài phần mềm diệt virus sẽ gắn cờ file này. Đó là báo nh
 dễ hiểu:
 
 - App **tự bấm chuột vào cửa sổ game**, **chụp ảnh cửa sổ game** liên tục để
-  nhận diện màn hình, **bắt phím F1/F2** kể cả khi app không được chọn, và **tự
+  nhận diện màn hình, **đăng ký một phím tắt toàn máy** để chụp nhanh, và **tự
   tải bản mới về thay chính nó**. Đó đúng là danh sách tính năng bạn thấy trên
   màn hình — nhưng cũng đúng là danh sách hành vi của một con trojan điều khiển
   từ xa, và máy quét tự động không phân biệt được hai thứ đó.
@@ -89,8 +89,9 @@ Phần còn lại của tài liệu này dành cho người muốn tự build ho
 4. Bấm "Bắt đầu tác vụ này".
 ```
 
-Bot chạy nền — bạn vẫn dùng máy bình thường trong lúc nó chạy. `F1` tạm dừng
-hoặc chạy tiếp tất cả, `F2` kết thúc tất cả.
+Bot chạy nền — bạn vẫn dùng máy bình thường trong lúc nó chạy. Khi cửa sổ app
+đang được chọn: `F1` tạm dừng hoặc chạy tiếp tất cả, `F2` kết thúc tất cả.
+`Ctrl+Shift+S` chụp cửa sổ game đang ở trước, bấm được cả khi đang ở trong game.
 
 ## Chạy từ mã nguồn
 

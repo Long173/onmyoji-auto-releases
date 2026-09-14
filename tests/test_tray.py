@@ -87,7 +87,6 @@ def dont_tear_down(window, monkeypatch):
     """
     monkeypatch.setattr(window._manager, "shutdown", lambda: None)
     monkeypatch.setattr(window._update_banner, "stop", lambda: None)
-    monkeypatch.setattr(window, "_unregister_hotkeys", lambda: None)
 
 
 # ── hiding ──────────────────────────────────────────────────────────────────

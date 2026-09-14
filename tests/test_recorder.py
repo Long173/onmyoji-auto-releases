@@ -413,7 +413,6 @@ def test_closing_the_app_stops_every_recording(qt_app, dashboard, monkeypatch, f
     hush(dashboard, monkeypatch)
     monkeypatch.setattr(dashboard._manager, "shutdown", lambda: None)
     monkeypatch.setattr(dashboard._update_banner, "stop", lambda: None)
-    monkeypatch.setattr(dashboard, "_unregister_hotkeys", lambda: None)
     monkeypatch.setattr(dashboard, "_hides_to_tray", lambda: False)
     dashboard._on_record(101)
 

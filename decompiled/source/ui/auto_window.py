@@ -54,8 +54,6 @@ REFRESH_MS = 1000
 # A running window's frame is already in hand, so its thumbnail costs nothing.
 # An idle one needs a real GDI grab per card, so those refresh every other tick.
 PREVIEW_EVERY_N_TICKS = 2
-PAUSE_HOTKEY = "f1"
-STOP_HOTKEY = "f2"
 
 HOME_SUMMARY = (
     "Mỗi cửa sổ game là một luồng chạy độc lập, chạy đúng một tác vụ do bạn "
@@ -104,7 +102,6 @@ class AutoWindow(FramelessWindow):
         # never open the wiki.
         self._wiki: Optional[QtWidgets.QWidget] = None
         self._wiki_source = ""
-        self._hotkeys: List[object] = []
         self._notifier = notifications.Notifier(self)
         self._page = HOME
         self._tick = 0
@@ -1082,31 +1079,27 @@ class AutoWindow(FramelessWindow):
     # ── hotkeys ─────────────────────────────────────────────────────────────
 
     def _register_hotkeys(self) -> None:
+        """F1, F2 and F9, live only while one of our windows has the keyboard.
+
+        These used to be registered system-wide as well, through the
+        ``keyboard`` package, so they worked while the game had focus. That is
+        gone on purpose. The package works by installing a low-level Windows
+        keyboard hook, and a low-level hook receives *every* keystroke on the
+        machine and filters afterwards — this app only ever wanted two of them.
+        Nothing was done with the rest, but the capability is there in the
+        binary, it is the shape of a keylogger, and it is one of the things an
+        antivirus weighs when it decides an unsigned PyInstaller build looks
+        like a trojan. The hook also outlived the window it belonged to, which
+        left listener threads running behind a closed dashboard.
+
+        The screenshot key kept its system-wide reach and did not need any of
+        that: ``hotkeys.GlobalHotkey`` asks Windows for one specific
+        combination via ``RegisterHotKey``, and Windows tells us when that
+        combination is pressed. It cannot see another key even in principle.
+        """
         QtWidgets.QShortcut(QtGui.QKeySequence("F1"), self, self._toggle_pause_all)
         QtWidgets.QShortcut(QtGui.QKeySequence("F2"), self, self._on_stop_all)
         QtWidgets.QShortcut(QtGui.QKeySequence("F9"), self, self._open_settings)
-        try:
-            import keyboard
-
-            self._hotkeys = [
-                keyboard.add_hotkey(PAUSE_HOTKEY, self._toggle_pause_all),
-                keyboard.add_hotkey(STOP_HOTKEY, self._on_stop_all),
-            ]
-        except Exception as exc:
-            logger.warning("Global hotkeys unavailable: %s", exc)
-            self._sidebar.set_hint("F1 / F2 chỉ khi cửa sổ này đang chọn")
-
-    def _unregister_hotkeys(self) -> None:
-        if not self._hotkeys:
-            return
-        try:
-            import keyboard
-
-            for handle in self._hotkeys:
-                keyboard.remove_hotkey(handle)
-        except Exception:
-            logger.debug("Could not remove global hotkeys", exc_info=True)
-        self._hotkeys = []
 
     def _toggle_pause_all(self) -> None:
         self._manager.pause_all()
@@ -1162,7 +1155,6 @@ class AutoWindow(FramelessWindow):
         # .mp4 that will not play, and the writer lives on the recorder's thread.
         self._stop_all_recordings()
         self._timer.stop()
-        self._unregister_hotkeys()
         self._release_hotkey()
         self._update_banner.stop()
         self._notifier.close()

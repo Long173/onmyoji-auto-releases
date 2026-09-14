@@ -186,22 +186,6 @@ def dashboard(qt_app, monkeypatch):
 
     SpyWorker.live = []
 
-    # Khong cai hook ban phim toan may trong test. AutoWindow._register_hotkeys
-    # goi keyboard.add_hotkey cho F1/F2, va thu vien do dung hook cap thap cua
-    # Windows kem may luong nen chay ngam — chung khong chet theo cua so, va sau
-    # vai chuc dashboard thi ca tien trinh ngã bang access violation giua chung.
-    # Cung ly do ma GameControl va cac worker bi thay bang stub o duoi: mot cu
-    # access violation khong phai la test fail, no giet ca lan chay.
-    #
-    # Code that da chiu duoc truong hop nay san — _register_hotkeys bat Exception
-    # va chuyen sang F1/F2 chi-khi-dang-chon — nen day khong phai duong tat.
-    import keyboard
-
-    monkeypatch.setattr(keyboard, "add_hotkey",
-                        lambda *a, **k: object(), raising=False)
-    monkeypatch.setattr(keyboard, "remove_hotkey",
-                        lambda *a, **k: None, raising=False)
-
     monkeypatch.setattr(session_module, "GameControl", FakeControl)
     monkeypatch.setattr(session_module, "is_alive", lambda hwnd: True)
     # The other half of the same claim. These hwnds are invented, so the real

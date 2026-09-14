@@ -96,6 +96,24 @@ Qt 5 chỉ đọc được instance mặc định nên weight 600 sẽ bị gi�
 `ImageResolver.local_path` thử cả hai — chỉ xử lý một dạng là mất sạch ảnh ngay
 khi người dùng bấm đồng bộ.
 
+**Hai kiểu phím tắt toàn máy, và vì sao chỉ giữ một.**
+
+Thư viện `keyboard` — dùng cho F1/F2 trước đây — hoạt động bằng hook cấp thấp
+`WH_KEYBOARD_LL`. Hook loại đó **nhận mọi phím gõ trên máy** rồi mới lọc ra cái
+mình quan tâm. App chỉ cần đúng hai phím và không làm gì với phần còn lại, nhưng
+*khả năng* đó vẫn nằm trong file exe, và đó đúng là hình dạng của một keylogger
+— một trong những thứ máy quét cân nhắc khi chấm điểm một bản PyInstaller chưa
+ký số. Nó còn sống lâu hơn cửa sổ tạo ra nó, để lại luồng nền chạy sau khi
+dashboard đã đóng.
+
+`RegisterHotKey` — dùng cho phím chụp nhanh trong `hotkeys.py` — thì ngược lại:
+đăng ký **một** tổ hợp cụ thể với Windows, và Windows báo lại khi đúng tổ hợp đó
+được bấm. Nó không có đường nào để biết phím khác, kể cả về nguyên tắc.
+
+Nên F1/F2 quay về làm `QShortcut` của Qt (chỉ ăn khi cửa sổ app đang chọn), còn
+phím chụp nhanh giữ nguyên tầm với toàn máy. Đổi lại: không bấm F1/F2 được khi
+đang ở trong game nữa.
+
 ## Giới hạn
 
 - Năm tác vụ đang chạy được: Phá Kết Giới, Ném đậu, Thám hiểm chương, Phụ bản
@@ -103,8 +121,9 @@ khi người dùng bấm đồng bộ.
 - Chỉ chạy trên Windows (`pywin32`, PrintWindow, PostMessage).
 - Wiki cần checkout `onmyoji_wiki` nằm cạnh thư mục dự án để có dữ liệu và ảnh
   offline; không có thì phải đồng bộ từ Supabase.
-- Phím tắt F1/F2 cần quyền hook toàn cục; nếu đăng ký thất bại, app ghi log và
-  phím chỉ hoạt động khi cửa sổ đang được chọn.
+- F1/F2 chỉ hoạt động khi cửa sổ app đang được chọn. Phím chụp nhanh
+  (`Ctrl+Shift+S`) thì toàn máy, nhưng Windows có thể từ chối nếu tổ hợp đó đã
+  có ứng dụng khác giữ — app báo lại chứ không im lặng.
 
 ---
 

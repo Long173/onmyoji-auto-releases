@@ -3,7 +3,6 @@ opencv-python>=4.8      # template matching, image decode
 numpy>=1.24             # frame buffers
 pywin32>=306            # PrintWindow capture, PostMessage input, window enumeration
 PyQt5>=5.15             # interface
-keyboard>=0.13.5        # global F1 / F2 hotkeys
 
 # Supabase sync uses urllib from the standard library — no client package needed.
 
