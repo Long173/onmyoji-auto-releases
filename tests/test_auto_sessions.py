@@ -223,6 +223,85 @@ def test_the_real_game_title_is_not_excluded():
     assert not "陰陽師Onmyoji".startswith(EXCLUDED_TITLE_PREFIXES)
 
 
+# ── a minimised game window still has to be findable ────────────────────────
+#
+# The scan measures each candidate's client area and drops anything under
+# MIN_CLIENT_SIZE, which is there to keep small non-game windows that happen to
+# match the title out of the list. A minimised window measures 0x0, so it was
+# dropped by that rule — no card, no Bắt đầu button, no way to reach it at all.
+#
+# Windows still says how big it will be: GetWindowPlacement's rcNormalPosition
+# reads 1138x672 for a window whose client is 1122x633 when open, and keeps
+# saying so while it is minimised. That is the outer rect rather than the
+# client — the frame cannot be measured while there is no client — so the card
+# reads a little larger than the window really is, and says it is minimised so
+# the number is not taken for a measurement.
+
+
+def one_window(monkeypatch, *, iconic, client=(1122, 633), normal=(1138, 672),
+               title="陰陽師Onmyoji", class_name="Win32Window"):
+    """Puts exactly one candidate window in front of `scan`."""
+    from auto import window_scanner
+
+    monkeypatch.setattr(window_scanner.win32gui, "EnumWindows",
+                        lambda fn, extra: fn(0x1234, extra))
+    monkeypatch.setattr(window_scanner.win32gui, "IsWindowVisible", lambda h: True)
+    monkeypatch.setattr(window_scanner.win32gui, "GetWindowText", lambda h: title)
+    monkeypatch.setattr(window_scanner.win32gui, "GetClassName",
+                        lambda h: class_name)
+    monkeypatch.setattr(window_scanner.win32gui, "IsIconic", lambda h: iconic)
+    monkeypatch.setattr(window_scanner.win32gui, "GetClientRect",
+                        lambda h: (0, 0, 0, 0) if iconic
+                        else (0, 0, client[0], client[1]))
+    monkeypatch.setattr(
+        window_scanner.win32gui, "GetWindowPlacement",
+        lambda h: (0, 0, (0, 0), (0, 0), (0, 0, normal[0], normal[1])))
+    monkeypatch.setattr(window_scanner.win32process, "GetWindowThreadProcessId",
+                        lambda h: (0, 0))
+
+
+def test_an_open_game_window_is_found(monkeypatch):
+    from auto.window_scanner import scan
+
+    one_window(monkeypatch, iconic=False)
+    found = scan()
+
+    assert [(w.hwnd, w.client_width, w.client_height) for w in found] == [
+        (0x1234, 1122, 633)]
+    assert found[0].minimised is False
+
+
+def test_a_minimised_game_window_is_still_found(monkeypatch):
+    """Otherwise there is no card, and nothing to press Bắt đầu on."""
+    from auto.window_scanner import scan
+
+    one_window(monkeypatch, iconic=True)
+    found = scan()
+
+    assert len(found) == 1, "a minimised window vanished from the list"
+    assert found[0].minimised is True
+    assert (found[0].client_width, found[0].client_height) == (1138, 672)
+
+
+def test_a_minimised_window_says_so_on_its_card(monkeypatch):
+    """The size is the outer rect, not the client. Label it rather than imply
+    a measurement that was not taken."""
+    from auto.window_scanner import scan
+
+    one_window(monkeypatch, iconic=True)
+
+    assert "thu nhỏ" in scan()[0].descriptor
+
+
+def test_a_minimised_window_too_small_to_be_the_game_is_still_excluded(monkeypatch):
+    """The size rule still applies — measured against the size it will open at."""
+    from auto.window_scanner import scan
+
+    one_window(monkeypatch, iconic=True, normal=(200, 150))
+
+    assert scan() == []
+
+
 # ── the task queue ──────────────────────────────────────────────────────────
 
 

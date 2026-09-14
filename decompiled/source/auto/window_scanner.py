@@ -60,6 +60,10 @@ class GameWindow:
     title: str
     client_width: int
     client_height: int
+    # A minimised window has no client area to measure, so the size above is
+    # the outer rect it will open at. Carried so the card can say so instead of
+    # showing that number as though it had been measured.
+    minimised: bool = False
 
     @property
     def handle_text(self) -> str:
@@ -69,11 +73,12 @@ class GameWindow:
     @property
     def descriptor(self) -> str:
         """The mono caption under a card title, e.g. ``HWND 0x0004A21C · 1122×633``."""
-        return "%s · %d×%d" % (
+        caption = "%s · %d×%d" % (
             self.handle_text,
             self.client_width,
             self.client_height,
         )
+        return caption + " · thu nhỏ" if self.minimised else caption
 
 
 def is_excluded_class(class_name: str) -> bool:
@@ -121,13 +126,26 @@ def scan(patterns: Sequence[str] = DEFAULT_PATTERNS) -> List[GameWindow]:
             # minimum-size test below would quietly change meaning with the
             # user's display scaling.
             with dpi.game_space():
-                _, _, width, height = win32gui.GetClientRect(hwnd)
+                iconic = bool(win32gui.IsIconic(hwnd))
+                if iconic:
+                    # No client area to measure while minimised — it reads 0x0,
+                    # which the size rule below drops. Windows still reports the
+                    # rect the window will open at, so that is what gets
+                    # measured; it is the outer rect, hence `minimised` on the
+                    # record so nothing treats it as a client size.
+                    #
+                    # Without this a minimised game window was not in the list
+                    # at all: no card, and no Bắt đầu to press on it.
+                    left, top, right, bottom = win32gui.GetWindowPlacement(hwnd)[4]
+                    width, height = right - left, bottom - top
+                else:
+                    _, _, width, height = win32gui.GetClientRect(hwnd)
         except Exception:
             logger.debug("Could not measure hwnd 0x%08x", hwnd, exc_info=True)
             return True
         if width < MIN_CLIENT_SIZE[0] or height < MIN_CLIENT_SIZE[1]:
             return True
-        found.append(GameWindow(hwnd, title, width, height))
+        found.append(GameWindow(hwnd, title, width, height, iconic))
         return True
 
     win32gui.EnumWindows(visit, None)
