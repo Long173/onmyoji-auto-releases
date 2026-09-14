@@ -25,14 +25,28 @@ from game_control import GameControl  # noqa: E402
 # ── the control's own answer ────────────────────────────────────────────────
 
 
+GAME = 0x1234
+ANOTHER_WINDOW = 0x9999
+
+
 @pytest.fixture
 def cursor(monkeypatch):
-    """Places the real cursor against a window at (100, 100)-(700, 500)."""
+    """Places the real cursor on a desktop where the game is the only window.
+
+    The game occupies (100, 100)-(700, 500) and nothing overlaps it, so what
+    lies under the cursor follows from where the cursor is. Tests about a
+    window sitting *on top* of the game drive ``WindowFromPoint`` themselves.
+    """
     monkeypatch.setattr("game_control.win32gui.GetWindowRect",
                         lambda hwnd: (100, 100, 700, 500))
 
     def place(x, y):
         monkeypatch.setattr("game_control.win32gui.GetCursorPos", lambda: (x, y))
+        inside = 100 <= x < 700 and 100 <= y < 500
+        monkeypatch.setattr("game_control.win32gui.WindowFromPoint",
+                            lambda pos: GAME if inside else ANOTHER_WINDOW)
+        monkeypatch.setattr("game_control.win32gui.GetAncestor",
+                            lambda hwnd, flag: hwnd)
 
     return place
 
@@ -40,7 +54,7 @@ def cursor(monkeypatch):
 def a_control():
     from conftest import bare_control
 
-    return bare_control(0x1234)
+    return bare_control(GAME)
 
 
 def test_a_control_over_the_cursor_admits_it_is_withholding(cursor):
@@ -65,6 +79,69 @@ def test_nothing_is_withheld_with_the_setting_switched_off(cursor, monkeypatch):
     monkeypatch.setattr("game_control._pause_while_hovering", False)
 
     assert a_control().withholding_clicks() is False
+
+
+# ── something else on top of the game ───────────────────────────────────────
+#
+# Reported against the Event clicker at 200% display scaling: it clicked
+# nothing at all, and went back to working at 100%. Nothing about the scaling
+# arithmetic is wrong — the point is scaled to the client the same way every
+# other task scales its points. What changes is how much of the screen the game
+# covers.
+#
+# The game is DPI-unaware, so at 200% a 1920x1080 screen is a 960x540 desktop
+# as far as it is concerned, and the window it is asked for — 1138x672 of its
+# own units — does not fit on it in either direction. Windows hands it what
+# room there is, and the result is a window rect that spans the whole desktop.
+# Measured at 175% while writing `resize_game_window`: a 1097x617 desktop, and
+# the client settled at 1063x599.
+#
+# So a test of "is the cursor inside the window rect" answers yes for every
+# pixel the cursor can be at, including the app's own window drawn on top of
+# the game. Clicks were withheld permanently, and the only clue was one log
+# line at the very start of the run.
+
+
+@pytest.fixture
+def covered(monkeypatch):
+    """The game fills the desktop and the app's own window is drawn over it."""
+    monkeypatch.setattr("game_control.win32gui.GetWindowRect",
+                        lambda hwnd: (0, 0, 960, 540))
+    monkeypatch.setattr("game_control.win32gui.GetCursorPos", lambda: (400, 300))
+    monkeypatch.setattr("game_control.win32gui.GetAncestor",
+                        lambda hwnd, flag: hwnd)
+
+    def under(hwnd):
+        monkeypatch.setattr("game_control.win32gui.WindowFromPoint",
+                            lambda pos: hwnd)
+
+    return under
+
+
+def test_a_cursor_on_our_own_window_is_not_on_the_game(covered):
+    """The 200% report. The cursor is inside the game's rect — the rect is the
+    whole screen — but what it is actually pointing at is this app."""
+    covered(ANOTHER_WINDOW)
+
+    assert a_control().withholding_clicks() is False
+
+
+def test_a_cursor_really_on_the_game_still_holds(covered):
+    """The other direction, which is the reason the guard exists at all."""
+    covered(GAME)
+
+    assert a_control().withholding_clicks() is True
+
+
+def test_a_cursor_on_a_child_of_the_game_still_holds(covered, monkeypatch):
+    """WindowFromPoint answers with the deepest window at the point, which for
+    a game that hosts a render child is not the handle the app holds."""
+    child = 0x5678
+    covered(child)
+    monkeypatch.setattr("game_control.win32gui.GetAncestor",
+                        lambda hwnd, flag: GAME if hwnd == child else hwnd)
+
+    assert a_control().withholding_clicks() is True
 
 
 # ── what a held loop does ───────────────────────────────────────────────────

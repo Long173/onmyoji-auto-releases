@@ -78,12 +78,20 @@ def test_the_button_is_only_held_down_for_the_press(posted):
 
 @pytest.fixture
 def cursor(monkeypatch):
-    """Places the real cursor, and reports the window it might be over."""
-    monkeypatch.setattr("game_control.win32gui.GetWindowRect",
-                        lambda hwnd: (100, 100, 700, 500))
+    """Places the real cursor on a desktop where the game is the only window.
 
+    The game occupies (100, 100)-(700, 500) and nothing is drawn over it, so
+    what the cursor is pointing at follows from where the cursor is. Which
+    window is really on top is what decides the answer, and
+    test_cursor_hold.py is where that is pinned down.
+    """
     def place(x, y):
         monkeypatch.setattr("game_control.win32gui.GetCursorPos", lambda: (x, y))
+        inside = 100 <= x < 700 and 100 <= y < 500
+        monkeypatch.setattr("game_control.win32gui.WindowFromPoint",
+                            lambda pos: 0x1234 if inside else 0x9999)
+        monkeypatch.setattr("game_control.win32gui.GetAncestor",
+                            lambda hwnd, flag: hwnd)
 
     return place
 

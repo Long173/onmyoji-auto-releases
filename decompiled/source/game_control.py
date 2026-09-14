@@ -618,7 +618,7 @@ class GameControl:
         return True
 
     def _player_is_hovering(self) -> bool:
-        """Whether the real cursor is over this window.
+        """Whether the real cursor is pointing at this window.
 
         A posted click does not move the cursor, so the player's own can sit
         inside the game while a loop works. That is harmless until a button is
@@ -626,14 +626,37 @@ class GameControl:
         reads to the game as a drag, and the view slides while the player is
         touching nothing. Reported on the Event clicker, which presses every two
         seconds for as long as it runs.
+
+        Asked as "what is under the cursor" rather than "is the cursor inside
+        the window rectangle", because those two are the same question only
+        while nothing covers the game. This app's own window usually does.
+
+        The rectangle test failed outright at 200% display scaling. The game is
+        DPI-unaware, so it sees a 1920x1080 screen as a 960x540 desktop, and the
+        window it is given cannot fit on that in either direction — its rect
+        ends up spanning the whole desktop. Every pixel the cursor could be at
+        was then "over the game", this app's own controls included, so clicks
+        were withheld for the entire run. The Event clicker, which needs nothing
+        from the screen and should have been the task least troubled by a small
+        window, was the one that stopped working.
+
+        ``WindowFromPoint`` answers with the deepest window at that point, which
+        for a game hosting a render child is not the handle held here — hence
+        the walk up to the top-level owner before comparing.
         """
         try:
             with dpi.game_space():
-                x, y = win32gui.GetCursorPos()
-                left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
+                position = win32gui.GetCursorPos()
+                under = win32gui.WindowFromPoint(position)
         except Exception:          # noqa: BLE001 - a missing window is not fatal
             return False
-        return left <= x < right and top <= y < bottom
+        if not under:
+            return False
+        try:
+            root = win32gui.GetAncestor(under, win32con.GA_ROOT) or under
+        except Exception:          # noqa: BLE001 - pre-2000 Windows lacks it
+            root = under
+        return root == self.hwnd
 
     def withholding_clicks(self) -> bool:
         """Whether a click right now would be held back.
