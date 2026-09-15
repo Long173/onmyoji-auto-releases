@@ -1,5 +1,7 @@
 ﻿# Onmyoji Tool
 
+[![Test](https://github.com/Long173/onmyoji-auto-releases/actions/workflows/test.yml/badge.svg)](https://github.com/Long173/onmyoji-auto-releases/actions/workflows/test.yml)
+
 Ứng dụng desktop cho game **Onmyoji** trên PC, **một cửa sổ duy nhất** với các
 trang chọn từ cột trái:
 

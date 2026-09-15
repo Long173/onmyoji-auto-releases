@@ -19,17 +19,17 @@ jobs:
     steps:
       # Hai repo nằm cạnh nhau, đúng cách checkout trên máy mình: `paths.py`
       # tìm dữ liệu wiki ở `<gốc>/../onmyoji_wiki`, và bản đóng gói nhúng nó vào.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: onmyoji-auto
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: Long173/onmyoji_wiki
           path: onmyoji_wiki
           sparse-checkout: assets
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # Cùng phiên bản mà máy build vẫn dùng.
           python-version: '3.12'

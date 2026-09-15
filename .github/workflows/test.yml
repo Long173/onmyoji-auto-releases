@@ -26,20 +26,20 @@ jobs:
     steps:
       # Cả hai repo nằm cạnh nhau trong workspace, đúng cách người ta checkout
       # trên máy mình — `paths.py` tìm dữ liệu wiki ở `<gốc>/../onmyoji_wiki`.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: onmyoji-auto
 
       # Chỉ lấy `assets` (dữ liệu + ảnh). Repo wiki nặng ~245 MB, phần còn lại
       # là mã Flutter mà bộ test này không đụng tới. Không có bước này thì 25
       # test dữ liệu wiki sẽ đỏ vì thiếu file chứ không phải vì sai.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: Long173/onmyoji_wiki
           path: onmyoji_wiki
           sparse-checkout: assets
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # Cùng phiên bản mà PyInstaller đóng vào bản phát hành.
           python-version: '3.12'
