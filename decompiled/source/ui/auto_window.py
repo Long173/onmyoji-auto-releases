@@ -48,6 +48,10 @@ def _foreground_window() -> int:
 
 # The design's own preview canvas is 1340×900; the frameless shell spends 56px
 # of that on the drop-shadow margin, so ask for it back.
+# What the layout was drawn for, and the smallest it was drawn to work at.
+# Neither is a promise the screen can keep — see `fit_to_screen`.
+DESIGN_MINIMUM = (1120, 700)
+
 WINDOW_WIDTH = 1340
 WINDOW_HEIGHT = 900
 REFRESH_MS = 1000
@@ -76,6 +80,24 @@ def _storable(value):
     if isinstance(value, tuple):
         return ",".join(str(part) for part in value)
     return value
+
+
+def fit_to_screen(wanted, available):
+    """``wanted``, shrunk to whatever the screen can actually show.
+
+    A minimum size is a floor Qt will not go under, so one larger than the
+    screen leaves part of the window unreachable — which is what happened at
+    200% scaling: a 2560x1440 monitor offers 1280x672 of logical room against a
+    declared minimum of 1120x700, and the bottom 28 pixels of the app, controls
+    and all, sat off the screen.
+
+    Shrinking costs nothing here because every page inside its own scroll area.
+    A screen that reports nothing (headless, or a race at start-up) is not a
+    screen to clamp against, so the design size stands.
+    """
+    width, height = available
+    return (min(wanted[0], width) if width > 0 else wanted[0],
+            min(wanted[1], height) if height > 0 else wanted[1])
 
 
 class AutoWindow(FramelessWindow):
@@ -131,8 +153,7 @@ class AutoWindow(FramelessWindow):
         self._notifier.watch_running(lambda: self._manager.running_count)
         self.setWindowIcon(app_icon.build_icon())
 
-        self.setMinimumSize(1120, 700)
-        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self._fit_to_screen()
         self._build()
         self._register_hotkeys()
         self._repair_autostart()
@@ -237,6 +258,38 @@ class AutoWindow(FramelessWindow):
         self._settings.setValue("queues/" + session.title, session.selected)
 
     # ── layout ──────────────────────────────────────────────────────────────
+
+    def _available_size(self):
+        """Usable room on the screen this window is on, in logical pixels."""
+        handle = self.windowHandle()
+        screen = handle.screen() if handle is not None else None
+        if screen is None:
+            screen = QtWidgets.QApplication.primaryScreen()
+        if screen is None:
+            return (0, 0)
+        area = screen.availableGeometry()
+        return (area.width(), area.height())
+
+    def _fit_to_screen(self) -> None:
+        """Keep the window inside the screen it is on.
+
+        Called again when it moves to another screen: two monitors at different
+        scalings give different logical room, so a window that fits on one can
+        be taller than the other.
+        """
+        available = self._available_size()
+        self.setMinimumSize(*fit_to_screen(DESIGN_MINIMUM, available))
+        wanted = fit_to_screen((WINDOW_WIDTH, WINDOW_HEIGHT), available)
+        if self.width() > wanted[0] or self.height() > wanted[1]:
+            self.resize(*wanted)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        handle = self.windowHandle()
+        if handle is not None and not getattr(self, "_watching_screen", False):
+            self._watching_screen = True
+            handle.screenChanged.connect(lambda _s: self._fit_to_screen())
+        self._fit_to_screen()
 
     def _build(self) -> None:
         outer = QtWidgets.QVBoxLayout(self.body)
