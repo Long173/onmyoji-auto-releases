@@ -1205,7 +1205,7 @@ def resize_game_window(
     for _ in range(RESIZE_PASSES):
         # In the game's coordinate space throughout — the reference client size
         # is what the game draws, not what the screen measures. See dpi.py.
-        with dpi.game_space():
+        with dpi.window_space(hwnd):
             left, top, right, bottom = win32gui.GetWindowRect(hwnd)
             _, _, client_w, client_h = win32gui.GetClientRect(hwnd)
             if client_w <= 0 or client_h <= 0:
@@ -1221,7 +1221,7 @@ def resize_game_window(
             )
         time.sleep(RESIZE_SETTLE_SECONDS)
 
-    with dpi.game_space():
+    with dpi.window_space(hwnd):
         _, _, client_w, client_h = win32gui.GetClientRect(hwnd)
     if (client_w, client_h) == (want_w, want_h):
         return

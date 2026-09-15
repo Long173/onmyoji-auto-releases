@@ -43,6 +43,91 @@ def _user32():
     return ctypes.windll.user32
 
 
+# Per-monitor v2, for a game that draws in real screen pixels. The value it
+# restores is whatever the caller had, so this only ever applies inside the
+# block below.
+_PER_MONITOR_V2 = ctypes.c_void_p(-4)
+
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+
+def _query_process_awareness(hwnd: int) -> int:
+    """The DPI awareness of the process owning ``hwnd``, as shcore reports it.
+
+    0 unaware, 1 system aware, 2 per-monitor aware.
+    """
+    user = _user32()
+    pid = ctypes.c_ulong()
+    user.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    handle = ctypes.windll.kernel32.OpenProcess(
+        _PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value
+    )
+    if not handle:
+        raise OSError("could not open process %d" % pid.value)
+    try:
+        value = ctypes.c_int()
+        if ctypes.windll.shcore.GetProcessDpiAwareness(
+                handle, ctypes.byref(value)):
+            raise OSError("GetProcessDpiAwareness failed")
+        return value.value
+    finally:
+        ctypes.windll.kernel32.CloseHandle(handle)
+
+
+def process_is_dpi_aware(hwnd: int) -> bool:
+    """Whether that window's process draws in real screen pixels.
+
+    False for the game as it ships, and for anything Windows is scaling on its
+    behalf. True once somebody sets Properties -> Compatibility -> "Override
+    high DPI scaling behavior" -> **Application**, which is Windows being told
+    to stop scaling and let the program draw at the monitor's own resolution.
+
+    Unaware is the answer when the question cannot be asked: it is the
+    out-of-the-box state, and it is what every measurement in this app assumed
+    before this existed.
+    """
+    try:
+        return _query_process_awareness(hwnd) != 0
+    except Exception:      # noqa: BLE001 - an unanswerable handle is not aware
+        logger.debug("Could not read DPI awareness of 0x%08x", hwnd,
+                     exc_info=True)
+        return False
+
+
+@contextmanager
+def window_space(hwnd: int) -> Iterator[None]:
+    """Run a block in the space *that window* is drawn in.
+
+    :func:`game_space` assumes the game is DPI-unaware, which it is until
+    somebody overrides it. When they do, the game draws at the monitor's real
+    resolution while an unaware thread is told the window is the smaller
+    virtualised size — and a capture sized from that measurement takes the
+    top-left corner of what was drawn and calls it the whole frame. Reported at
+    200% scaling as the picker showing a quarter of the game blown up.
+
+    So the awareness is asked of the game rather than assumed, and the block
+    runs in whichever space matches.
+    """
+    if not process_is_dpi_aware(hwnd):
+        with game_space():
+            yield
+        return
+    try:
+        previous = _user32().SetThreadDpiAwarenessContext(_PER_MONITOR_V2)
+    except (AttributeError, OSError):
+        yield
+        return
+    try:
+        yield
+    finally:
+        if previous:
+            try:
+                _user32().SetThreadDpiAwarenessContext(ctypes.c_void_p(previous))
+            except (AttributeError, OSError):
+                logger.debug("Could not restore thread DPI awareness",
+                             exc_info=True)
+
+
 @contextmanager
 def game_space() -> Iterator[None]:
     """Run a block in the game's coordinate space, then restore the caller's.

@@ -101,7 +101,7 @@ class GameControl:
     def _measure_window(self) -> None:
         # Every number below is in the game's own coordinate space, not the
         # screen's. They differ whenever the game is DPI-virtualised; see dpi.py.
-        with dpi.game_space():
+        with dpi.window_space(self.hwnd):
             left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
             _, _, client_right, client_bottom = win32gui.GetClientRect(self.hwnd)
         self.client_width = client_right
@@ -240,7 +240,7 @@ class GameControl:
         a trap for whoever adds the second caller.
         """
         try:
-            with dpi.game_space():
+            with dpi.window_space(self.hwnd):
                 rc = ctypes.windll.user32.PrintWindow(
                     self.hwnd, self._window_mem_dc.GetSafeHdc(), PW_RENDERFULLCONTENT
                 )
@@ -323,7 +323,7 @@ class GameControl:
             # screen pixels instead, a virtualised game fills only the top-left
             # corner of it and leaves the rest black — which is how a raid came
             # to match templates against 0.8x artwork and click empty space.
-            with dpi.game_space():
+            with dpi.window_space(self.hwnd):
                 self._ensure_dc()
                 source = (
                     self._window_mem_dc if self._render_window() else self._src_dc
@@ -591,7 +591,7 @@ class GameControl:
         method stands on its own.
         """
         try:
-            with dpi.game_space():
+            with dpi.window_space(self.hwnd):
                 child = win32gui.ChildWindowFromPoint(self.hwnd, point)
         except Exception:
             return self.hwnd
@@ -616,7 +616,7 @@ class GameControl:
                          start, end)
             return False
         self.invalidate_frame()
-        with dpi.game_space():
+        with dpi.window_space(self.hwnd):
             target = self._target_hwnd(start)
             down = win32api.MAKELONG(start[0], start[1])
             win32gui.PostMessage(target, win32con.WM_MOUSEMOVE, 0, down)
@@ -666,7 +666,7 @@ class GameControl:
         the walk up to the top-level owner before comparing.
         """
         try:
-            with dpi.game_space():
+            with dpi.window_space(self.hwnd):
                 position = win32gui.GetCursorPos()
                 under = win32gui.WindowFromPoint(position)
         except Exception:          # noqa: BLE001 - a missing window is not fatal
@@ -713,7 +713,7 @@ class GameControl:
         lparam = win32api.MAKELONG(point[0], point[1])
         # Whatever is on screen after this is no longer what we matched against.
         self.invalidate_frame()
-        with dpi.game_space():
+        with dpi.window_space(self.hwnd):
             target = self._target_hwnd(point)
             logger.debug("Click at %s (hwnd=0x%08x)", point, target)
             win32gui.PostMessage(target, win32con.WM_MOUSEMOVE, 0, lparam)

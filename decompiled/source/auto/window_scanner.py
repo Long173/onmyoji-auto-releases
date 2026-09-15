@@ -125,7 +125,7 @@ def scan(patterns: Sequence[str] = DEFAULT_PATTERNS) -> List[GameWindow]:
             # "1402×791" for a window the worker is driving as 1122×633, and the
             # minimum-size test below would quietly change meaning with the
             # user's display scaling.
-            with dpi.game_space():
+            with dpi.window_space(hwnd):
                 iconic = bool(win32gui.IsIconic(hwnd))
                 if iconic:
                     # No client area to measure while minimised — it reads 0x0,
@@ -211,7 +211,7 @@ def open_if_minimised(hwnd: int, timeout: float = OPEN_TIMEOUT_SECONDS) -> bool:
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        with dpi.game_space():
+        with dpi.window_space(hwnd):
             _, _, width, height = win32gui.GetClientRect(hwnd)
         if width > 0 and height > 0:
             return True

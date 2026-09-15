@@ -199,7 +199,7 @@ def guarded_line_ranges(tree) -> list:
             if (
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
-                and call.func.attr == "game_space"
+                and call.func.attr in ("game_space", "window_space")
             ):
                 spans.append((node.lineno, node.end_lineno))
     return spans
@@ -267,3 +267,70 @@ def test_the_task_modules_do_not_touch_win32_at_all():
         text = (SOURCE / name).read_text(encoding="utf-8-sig")
         assert "win32" not in text, "%s reaches past GameControl" % name
         assert "ctypes" not in text, "%s reaches past GameControl" % name
+
+
+# ── a game that draws in real pixels ────────────────────────────────────────
+#
+# `game_space` assumes the game is DPI-unaware, which it is out of the box.
+# Windows lets anyone change that: Properties -> Compatibility -> "Override
+# high DPI scaling behavior" -> **Application** tells Windows to stop scaling
+# the game and let it draw at the monitor's real resolution. A user did exactly
+# that, and reported the click-point picker showing the top-left quarter of the
+# game blown up to fill the frame.
+#
+# That is what a mismatch looks like. The bitmap is sized from a client rect
+# read on an unaware thread — 1122x633 of virtualised units — while PrintWindow
+# draws the window at its real 2244x1266, so the copy takes the top-left
+# quarter. Their friend set "the same thing" and saw nothing wrong, which fits:
+# the other two choices in that dropdown leave Windows doing the scaling, and
+# the game stays unaware.
+#
+# So the space to measure in is not a constant. It is whichever space the game
+# itself draws in, and the game's own process says which that is.
+
+
+@windows_only
+def test_an_unaware_game_is_measured_unaware(monkeypatch):
+    monkeypatch.setattr(dpi, "process_is_dpi_aware", lambda hwnd: False)
+    seen = []
+
+    with dpi.window_space(0x1234):
+        seen.append(is_unaware(current_context()))
+
+    assert seen == [True]
+
+
+@windows_only
+def test_a_game_that_draws_in_real_pixels_is_measured_that_way(monkeypatch,
+                                                               aware_thread):
+    """The override case. Measuring this one unaware is what crops the capture."""
+    monkeypatch.setattr(dpi, "process_is_dpi_aware", lambda hwnd: True)
+    seen = []
+
+    with dpi.window_space(0x1234):
+        seen.append(is_unaware(current_context()))
+
+    assert seen == [False]
+
+
+@windows_only
+def test_the_caller_is_put_back_either_way(monkeypatch, aware_thread):
+    for aware in (False, True):
+        monkeypatch.setattr(dpi, "process_is_dpi_aware", lambda hwnd: aware)
+        before = current_context()
+
+        with dpi.window_space(0x1234):
+            pass
+
+        assert is_unaware(current_context()) == is_unaware(before)
+
+
+@windows_only
+def test_a_window_that_cannot_be_asked_is_treated_as_unaware(monkeypatch):
+    """Unaware is the out-of-the-box state, so it is the safer guess."""
+    def boom(hwnd):
+        raise OSError("no such process")
+
+    monkeypatch.setattr(dpi, "_query_process_awareness", boom)
+
+    assert dpi.process_is_dpi_aware(0xDEAD) is False
