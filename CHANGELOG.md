@@ -4,6 +4,20 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.17
+
+### Màn hình để scale cao
+
+- Ai đã chỉnh "Override high DPI scaling behavior" của game thành
+  **Application** thì tool chỉ nhìn thấy một góc tư màn hình game, phóng to.
+  Chỗ chọn điểm tự nhấn hiện sai hình, và mọi thao tác đều lệch. Nay tool hỏi
+  chính game xem nó vẽ ở cỡ nào rồi đo theo cỡ đó.
+- Cửa sổ tool để lọt ra ngoài màn hình ở scale 200%, phần dưới cùng không kéo
+  tới được. Nay nó tự thu cho vừa màn hình đang hiển thị, và tính lại khi được
+  kéo sang màn khác.
+
+---
+
 ## 3.16
 
 ### Cửa sổ game thu nhỏ
