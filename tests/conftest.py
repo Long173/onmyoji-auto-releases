@@ -208,6 +208,11 @@ def dashboard(qt_app, monkeypatch):
     monkeypatch.setattr(manager_module.window_scanner, "is_gone",
                         lambda hwnd: False)
     monkeypatch.setattr(realm_raid, "resize_game_window", lambda hwnd: None)
+    # Same reason as `is_alive` above: these hwnds are invented, so the real
+    # ShowWindow and GetClientRect answer "Invalid window handle" and take the
+    # start path down with them.
+    monkeypatch.setattr(session_module, "open_if_minimised",
+                        lambda hwnd, timeout=None: True)
 
     # Every implemented task, not just the raid. A real worker here captures a
     # window that is not there, fails, and calls back into Qt from its own

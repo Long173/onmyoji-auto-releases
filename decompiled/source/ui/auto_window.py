@@ -19,6 +19,7 @@ import game_control
 import tasks
 import theme
 import updater
+from auto import window_scanner
 from auto.manager import SessionManager
 from auto.session import GameSession
 import hotkeys
@@ -80,6 +81,22 @@ def _storable(value):
     if isinstance(value, tuple):
         return ",".join(str(part) for part in value)
     return value
+
+
+def minimised_to_announce(running, minimised, already):
+    """Which running windows have just been minimised, and what to remember.
+
+    Returns ``(to_announce, still_minimised)``. The second half is what makes
+    this say it once: a window stays on the list while it is still minimised
+    *and* still running, and drops off the moment either stops being true — so
+    restoring it, or stopping the task, arms the notice again for next time.
+
+    Kept apart from the dashboard because the interesting part is the
+    bookkeeping, and that needs no window, no tray and no Qt to check.
+    """
+    fresh = sorted(h for h in running if h in minimised and h not in already)
+    keep = {h for h in already if h in minimised and h in running}
+    return fresh, keep | set(fresh)
 
 
 def fit_to_screen(wanted, available):
@@ -780,6 +797,36 @@ class AutoWindow(FramelessWindow):
         logger.info("Hotkey capture of 0x%08x", hwnd)
         self._on_capture(hwnd)
 
+    def _warn_about_minimised_games(self) -> None:
+        """Tell the user a running task has stopped because the game is hidden.
+
+        A minimised window has no client area, so every capture fails and each
+        loop falls back to waiting — the task is alive and doing nothing. The
+        card still reads "đang chạy" and the log fills with `Capture failed`
+        once a second, which is the program describing its own plumbing rather
+        than answering "why has nothing happened for ten minutes".
+
+        The window is deliberately not restored. Somebody who minimised the
+        game mid-run wanted the screen; taking it back would be the app
+        arguing with them. Pressing Bắt đầu is a request to run and does open
+        it — see `GameSession.start`.
+        """
+        running = {s.hwnd for s in self._manager.sessions if s.is_running}
+        minimised = {h for h in running if window_scanner.is_minimised(h)}
+        fresh, self._told_minimised = minimised_to_announce(
+            running, minimised, getattr(self, "_told_minimised", set()))
+        for hwnd in fresh:
+            session = self._manager.get(hwnd)
+            title = session.title if session is not None else "0x%08X" % hwnd
+            logger.info("Window 0x%08x minimised while running; task is waiting",
+                        hwnd)
+            self._notifier.notify(
+                theme.APP_NAME,
+                "Game đang thu nhỏ nên tác vụ trên %s đang chờ — mở cửa sổ game "
+                "lên là nó chạy tiếp." % title,
+                notifications.WARNING,
+            )
+
     def _say_goodbye_to_closed_windows(self) -> None:
         """Drop cards whose game has been closed, announcing the ones at work.
 
@@ -1077,6 +1124,7 @@ class AutoWindow(FramelessWindow):
         self._tick += 1
         self._manager.sync()
         self._say_goodbye_to_closed_windows()
+        self._warn_about_minimised_games()
         # The header carries one button whose meaning follows the running state,
         # so it has to be repainted on the tick as well as on a page change.
         self._sync_header()
