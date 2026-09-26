@@ -878,7 +878,7 @@ class RealmRaidWorker(TaskWorker):
         # struck off (929, 490) after eight presses that had all landed on
         # (633, 252)'s button, so the card that was really refusing stayed
         # eligible and was attacked for as long as the task ran.
-        self._last_enemy = self._card_owning(position)
+        self._last_enemy = self._card_on_the_board(self._card_owning(position))
         if self._bump_stuck("START"):
             return True
         # Counted separately from _stuck_count, which other handlers reset for
@@ -945,6 +945,40 @@ class RealmRaidWorker(TaskWorker):
             if not self._has_refused(point):
                 return point
         return None
+
+    def _card_on_the_board(self, approximate: Point) -> Point:
+        """The card the board really has nearest ``approximate``.
+
+        ``_card_owning`` works back from the button through a fixed offset, so
+        what it returns is an estimate: about 3px out when the button is the one
+        it looks like, and up to ATTACK_BUTTON_TOLERANCE out otherwise. The skip
+        list then compares positions within the tighter SAME_ENEMY_WITHIN, so an
+        estimate landing between those two numbers is struck off at a position
+        the board does not have, and never matches the card it was meant to
+        stand for.
+
+        Measured on a live run: the card at (633, 134) had its refusal filed
+        under (633, 189) — 55 away, inside the 60 that accepted the button and
+        outside the 50 that remembers it — and was attacked again every pass.
+        514 of those warnings in one morning, every one naming the same phantom.
+
+        Snapping to a real card closes the gap by putting board positions on
+        both sides of the comparison. An estimate near nothing recognisable
+        comes back unchanged: there is nothing better to say about it.
+        """
+        tolerance = max(1, self._geometry.point(
+            (geometry.ATTACK_BUTTON_TOLERANCE, 0))[0])
+        try:
+            cards = self._control.find_all(TPL_SECTION, threshold=self._accuracy)
+        except CaptureError:
+            return approximate
+        best, closest = approximate, None
+        for card in cards:
+            gap = max(abs(card[0] - approximate[0]),
+                      abs(card[1] - approximate[1]))
+            if gap <= tolerance and (closest is None or gap < closest):
+                best, closest = card, gap
+        return best
 
     def _card_owning(self, button: Point) -> Point:
         """The card an Attack button belongs to.
