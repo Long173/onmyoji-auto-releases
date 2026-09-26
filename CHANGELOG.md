@@ -4,6 +4,23 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.18
+
+### Phá Kết Giới
+
+- Hết cảnh bám mãi một kết giới không đánh được. Kết giới bị game từ chối giờ
+  được bỏ qua thật và auto đi tiếp; trước đây nó ghi nhầm vị trí nên vòng sau
+  lại chọn đúng ô đó — một buổi sáng lặp 514 lần trên cùng một ô.
+
+### Chung cho mọi tác vụ
+
+- Thu nhỏ cửa sổ game lúc đang chạy thì có thông báo, vì tác vụ sẽ đứng chờ:
+  cửa sổ thu nhỏ không chụp được gì. Mở cửa sổ lên là chạy tiếp.
+  Muốn cho game khuất mắt mà auto vẫn chạy thì đừng thu nhỏ — cứ mở cửa sổ
+  khác đè lên, hoặc đẩy game sang desktop ảo khác.
+
+---
+
 ## 3.17
 
 ### Màn hình để scale cao
