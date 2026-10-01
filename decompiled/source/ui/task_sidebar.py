@@ -13,6 +13,7 @@ import tasks
 import theme
 from ui import controls
 from ui.primitives import Divider, label, section_label, vbox
+import features
 from ui.wiki_page import SECTIONS as WIKI_SECTIONS
 
 WIDTH = 244
@@ -79,9 +80,10 @@ class TaskSidebar(QtWidgets.QWidget):
                 row.setToolTip("Chưa cài đặt — %s" % spec.todo)
             column.addWidget(row)
 
-        column.addWidget(self._pad(section_label("Bách khoa Âm Dương Sư"), top=18))
-        for section, name in WIKI_SECTIONS:
-            column.addWidget(self._add_row(wiki_key(section), name))
+        if features.WIKI:
+            column.addWidget(self._pad(section_label("Bách khoa Âm Dương Sư"), top=18))
+            for section, name in WIKI_SECTIONS:
+                column.addWidget(self._add_row(wiki_key(section), name))
 
         column.addWidget(self._pad(section_label("Công cụ"), top=18))
         column.addWidget(self._add_row(SETTINGS, "Cài đặt chung", hint="F9"))

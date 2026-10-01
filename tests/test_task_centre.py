@@ -93,7 +93,7 @@ def test_every_task_gets_a_row(dashboard):
     assert HOME in rows
 
 
-def test_the_wiki_sections_are_rows_in_the_one_sidebar(dashboard):
+def test_the_wiki_sections_are_rows_in_the_one_sidebar(wiki_on, dashboard):
     """No second navigation column: 460px of nav was mostly empty."""
     from ui.wiki_page import SECTIONS
 

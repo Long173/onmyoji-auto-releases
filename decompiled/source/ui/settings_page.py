@@ -26,6 +26,7 @@ from typing import Any, Dict, Optional
 from PyQt5 import QtCore, QtWidgets
 
 import contact
+import features
 import paths
 import tasks
 import theme
@@ -73,7 +74,9 @@ class SettingsPage(QtWidgets.QWidget):
 
         # Only when there is something to show — an unfilled build says nothing
         # rather than showing an empty heading.
-        for block in (self._build_folders(), self._build_review(),
+        # The wiki review block goes with the wiki: see features.WIKI.
+        review = self._build_review() if features.WIKI else None
+        for block in (self._build_folders(), review,
                       self._build_contact(), self._build_links()):
             if block is None:
                 continue

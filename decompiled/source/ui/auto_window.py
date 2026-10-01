@@ -19,6 +19,7 @@ import game_control
 import tasks
 import theme
 import updater
+import features
 from auto import window_scanner
 from auto.manager import SessionManager
 from auto.session import GameSession
@@ -402,6 +403,10 @@ class AutoWindow(FramelessWindow):
             self._settings_page.show_values(self._app_values())
             self._stack.setCurrentWidget(self._settings_page)
         elif section is not None:
+            if not features.WIKI:
+                # Switched off: see features.WIKI. Building the page is what
+                # starts its sync, so refusing here keeps it fully dormant.
+                return
             page = self._wiki_page()
             page.show_section(section)
             self._stack.setCurrentWidget(page)
@@ -1062,7 +1067,14 @@ class AutoWindow(FramelessWindow):
         self.close()
 
     def open_wiki(self) -> None:
-        """Jump to the wiki. Used by ``--wiki`` on the command line."""
+        """Jump to the wiki. Used by ``--wiki`` on the command line.
+
+        Does nothing while the wiki is switched off, so a shortcut made before
+        3.19 opens the dashboard instead of failing or quietly reviving it.
+        """
+        if not features.WIKI:
+            logger.info("Wiki is switched off; --wiki ignored")
+            return
         self._show_page(wiki_key(WIKI_SECTIONS[0][0]))
 
     def _open_logs(self) -> None:

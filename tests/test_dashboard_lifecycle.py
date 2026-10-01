@@ -135,7 +135,7 @@ def test_no_prompt_when_nothing_is_running(dashboard):
     assert asked == [], "it asked even though no window was running"
 
 
-def test_the_wiki_is_a_page_not_a_second_window(dashboard):
+def test_the_wiki_is_a_page_not_a_second_window(wiki_on, dashboard):
     """It used to open a window of its own, which could be left behind."""
     dashboard.open_wiki()
     wiki = dashboard._wiki
@@ -146,7 +146,7 @@ def test_the_wiki_is_a_page_not_a_second_window(dashboard):
     assert dashboard._stack.indexOf(wiki) >= 0, "it is not in the main window's stack"
 
 
-def test_closing_waits_for_a_wiki_sync(dashboard):
+def test_closing_waits_for_a_wiki_sync(wiki_on, dashboard):
     """A sync thread must not outlive the window it was started from."""
     dashboard.open_wiki()
     waited = []

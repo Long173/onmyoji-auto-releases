@@ -191,6 +191,20 @@ class FakeControl:
 
 
 @pytest.fixture
+def wiki_on(monkeypatch):
+    """Turn the switched-off encyclopaedia back on, for the tests of it.
+
+    Listed before ``dashboard`` in a test's arguments, so the switch is set by
+    the time the sidebar is built. The wiki is off in the shipped app (see
+    features.WIKI), but its tests stay: turning it back on should find it
+    working, not find out it rotted while nobody looked.
+    """
+    import features
+
+    monkeypatch.setattr(features, "WIKI", True)
+
+
+@pytest.fixture
 def dashboard(qt_app, monkeypatch):
     """An AutoWindow wired to fake game windows and fake workers."""
     import realm_raid

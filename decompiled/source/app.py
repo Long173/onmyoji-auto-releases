@@ -30,7 +30,8 @@ def parse_args(argv: list) -> argparse.Namespace:
     parser.add_argument(
         "--wiki",
         action="store_true",
-        help="Open straight onto the wiki page",
+        help="Open straight onto the wiki page (ignored while it is "
+             "switched off — see features.WIKI)",
     )
     parser.add_argument(
         "--tray",

@@ -27,7 +27,7 @@ comments and docstrings are English.
 pip install -r requirements.txt
 
 python decompiled/source/app.py            # run (add -v for click/match logging)
-python decompiled/source/app.py --wiki     # open straight onto the wiki page
+python decompiled/source/app.py --wiki     # open onto the wiki — inert while features.WIKI is off
 python decompiled/source/app.py --tray     # start hidden in the tray
 
 python -m pytest tests -q                  # full suite; needs no game and no network
@@ -136,6 +136,11 @@ non-ASCII paths) that backs each replaced entry into `.update-backup` and rolls
 back on failure, leaving `logs/ cache/ .env wiki/` untouched.
 
 ### Wiki
+
+**Switched off since 3.19** (`decompiled/source/features.py`: `WIKI = False`).
+Development stopped; the code and its tests are kept so turning it back on is
+that one line. While off, the page is never built, so nothing syncs. Tests of
+wiki *behaviour* take the `wiki_on` fixture (conftest) ahead of `dashboard`.
 
 `wiki/repository.py` layers offline data → `cache/wiki/` (synced) → Supabase
 (PostgREST over stdlib `urllib`, no client package). Data is read from the

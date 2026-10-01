@@ -265,7 +265,8 @@ def test_a_queue_that_will_not_load_leaves_the_buttons_off(qt_app, monkeypatch):
 
 
 @pytest.fixture
-def settings_page(qt_app, monkeypatch, tmp_path):
+def settings_page(wiki_on, qt_app, monkeypatch, tmp_path):
+    # The review block only exists while the wiki is on: see features.WIKI.
     import app_settings
     from ui.settings_page import SettingsPage
 

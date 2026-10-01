@@ -2,13 +2,12 @@
 
 [![Test](https://github.com/Long173/onmyoji-auto-releases/actions/workflows/test.yml/badge.svg)](https://github.com/Long173/onmyoji-auto-releases/actions/workflows/test.yml)
 
-Ứng dụng desktop cho game **Onmyoji** trên PC, **một cửa sổ duy nhất** với các
-trang chọn từ cột trái:
+Ứng dụng desktop chạy auto cho game **Onmyoji** trên PC, trên **nhiều cửa sổ
+game cùng lúc**: Phá Kết Giới, Ném đậu (Demon Parade), Thám hiểm chương, Phụ bản
+ngự hồn, và Event.
 
-- **Trung tâm tác vụ** — chạy auto trên **nhiều cửa sổ game cùng lúc**: Phá Kết
-  Giới, Ném đậu (Demon Parade), Thám hiểm chương, Phụ bản ngự hồn, và Event.
-- **Bách khoa** — tra cứu Thức thần, Ngự hồn, Hiệu ứng. Chạy offline hoàn toàn,
-  đồng bộ nội dung mới từ Supabase khi cần.
+Bách khoa Thức thần / Ngự hồn / Hiệu ứng đã tắt từ bản 3.19 — đã có những trang
+web làm đầy đủ dữ liệu hơn, nên tool chỉ tập trung vào phần auto.
 
 Bot chạy **nền**: không chiếm chuột, không cần cửa sổ game ở foreground. Bạn vẫn
 dùng máy bình thường trong lúc nó chạy.
