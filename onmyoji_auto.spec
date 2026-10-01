@@ -83,12 +83,30 @@ if (ROOT / "LICENSE").is_file():
 else:
     print("[spec] no LICENSE found — building without it")
 
-# The wiki dataset is optional at build time: without it the app still runs and
-# the wiki offers to sync from Supabase instead.
-if (WIKI / "data").is_dir():
+# The wiki dataset — 23 MB of the build — ships only while the wiki is switched
+# on. It is read out of features.py the same way APP_VERSION is read out of
+# theme.py, so the switch stays a single line: turning the wiki back on puts its
+# data back in the next build, with nothing to remember here.
+def wiki_switch(source: str) -> bool:
+    """features.WIKI, read from the file without importing the app."""
+    import re
+    for line in source.splitlines():
+        found = re.match(r"\s*WIKI\s*=\s*(True|False)\b", line)
+        if found:
+            return found.group(1) == "True"
+    raise SystemExit("[spec] features.py has no WIKI = True/False line")
+
+
+WIKI_ON = wiki_switch((SOURCE / "features.py").read_text(encoding="utf-8"))
+
+# Optional even when on: without it the app still runs and the wiki offers to
+# sync from Supabase instead.
+if not WIKI_ON:
+    print("[spec] wiki switched off (features.WIKI) — not bundling its dataset")
+elif (WIKI / "data").is_dir():
     datas.append((str(WIKI / "data"), "wiki/assets/data"))
-if (WIKI / "images").is_dir():
-    datas.append((str(WIKI / "images"), "wiki/assets/images"))
+    if (WIKI / "images").is_dir():
+        datas.append((str(WIKI / "images"), "wiki/assets/images"))
 else:
     print("[spec] onmyoji_wiki artwork not found — building without it")
 

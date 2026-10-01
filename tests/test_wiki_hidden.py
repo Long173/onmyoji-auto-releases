@@ -56,3 +56,46 @@ def test_a_wiki_page_key_is_not_routed(dashboard):
 def test_settings_carry_no_wiki_review_block(dashboard):
     labels = [w.text() for w in dashboard._settings_page.findChildren(QtWidgets.QLabel)]
     assert not any("góp ý wiki" in text.lower() for text in labels), labels
+
+
+# ── the build follows the same switch ───────────────────────────────────────
+
+
+def spec_switch():
+    """The spec's own reader, run on its own source — no PyInstaller needed."""
+    import re
+    from pathlib import Path
+
+    spec = (Path(__file__).resolve().parents[1] / "onmyoji_auto.spec").read_text(
+        encoding="utf-8")
+    start = spec.index("def wiki_switch(")
+    end = spec.index("\nWIKI_ON", start)
+    namespace = {"re": re}
+    exec(spec[start:end], namespace)
+    return namespace["wiki_switch"]
+
+
+def test_the_build_reads_the_switch_the_app_reads():
+    """23 MB of dataset ships only while the wiki is on, and the build decides
+    that from features.py. If its reader and the app disagree, the download
+    either carries dead weight or a re-enabled wiki ships with no data."""
+    from pathlib import Path
+
+    source = (Path(features.__file__)).read_text(encoding="utf-8")
+    assert spec_switch()(source) is features.WIKI
+
+
+@pytest.mark.parametrize("line, expected", [
+    ("WIKI = True", True),
+    ("WIKI = False", False),
+    ("WIKI=True", True),
+    ("WIKI = True  # back on for 4.0", True),
+    ("WIKI = False  # off since 3.19", False),
+])
+def test_the_build_s_reader_survives_ordinary_edits(line, expected):
+    assert spec_switch()("# header\n%s\n" % line) is expected
+
+
+def test_the_build_refuses_a_switch_it_cannot_read():
+    with pytest.raises(SystemExit):
+        spec_switch()("WIKI = os.environ.get('WIKI')\n")
