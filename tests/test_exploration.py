@@ -79,6 +79,21 @@ class StubControl:
             return None
         return self.seen.get(template_path)
 
+    def find_all(self, template_path, threshold=0.9, **kwargs):
+        """Every copy of a template: here, the one ``find`` would report.
+
+        The loop asks for every nest so it can pick out a glowing one first.
+        Answering with the nest the test placed keeps that path running for
+        real; the blank frame below never shows a glow, so it falls through to
+        the ordinary nest exactly as before.
+        """
+        point = self.find(template_path, threshold)
+        return [point] if point is not None else []
+
+    def full_shot(self, gray=False):
+        width, height = self.client_width, self.client_height
+        return np.zeros((height, width) if gray else (height, width, 3), np.uint8)
+
     def withholding_clicks(self):
         """Whether the real control would refuse to click right now.
 

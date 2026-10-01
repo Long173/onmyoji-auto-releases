@@ -163,6 +163,28 @@ WORLD_MAP_THRESHOLD = 0.85
 # and 1.000 on the live capture it was cut from, against 0.564 for the best frame
 # it is absent from. 0.85 sits in the middle of that gap.
 BOSS_THRESHOLD = 0.85
+# Glowing nests: a bright gold arc sweeps round the rim of some badges, and the
+# player wants those fought before anything else. See `glow_sectors`.
+#
+# GLOW_FLOOR is the nest match a glowing badge has to clear first. The plain
+# template covers only the 48px core, which the arc partly washes out: glowing
+# badges scored 0.77-0.90 on a live map against 0.98-1.00 for plain ones. The
+# red-sword nest of an older chapter, which has gold trim and no glow, scored
+# 0.65 — so 0.72 keeps it out while letting every glowing badge in.
+GLOW_FLOOR = 0.72
+# How much of the rim the arc must cover, in slices of GLOW_SLICES. Measured:
+# plain 1-8, glowing 14-19 across one sweep of the arc, red-sword 12.
+GLOW_SLICES = 24
+GLOW_SECTORS = 13
+# The rim band the arc runs in, in reference pixels from the badge centre. The
+# opaque disc ends at about 36; inside 29 the sword art carries gold of its own.
+GLOW_RING = (29, 39)
+# What counts as the arc's gold: yellow-orange, saturated, and near white-hot.
+# The brightness bar is what keeps the sword's own brass hilt out of it.
+GLOW_HUE = (10, 38)
+GLOW_MIN_SATURATION = 60
+GLOW_MIN_VALUE = 210
+
 # The reward node scored 0.969 on the recorded frame it appears in and 1.000 on
 # the live capture it was cut from, against 0.692 for the best map frame with no
 # reward on it.
@@ -224,6 +246,51 @@ LOOP_LOG_EVERY = 30
 # about a minute of a screen the loop cannot act on, which no normal step
 # reaches.
 STALL_PASSES = 40
+
+
+def glow_sectors(frame: np.ndarray, centre: Tuple[int, int],
+                 scale: float = 1.0) -> Optional[int]:
+    """How many angular slices of a badge's rim carry the glow's bright gold.
+
+    Counted by slice rather than measured as an amount, because the glow is not
+    a ring: it is a comet-shaped arc sweeping round the badge, at a different
+    angle every frame. Two measures that ignored that were tried first and
+    failed. Rim brightness separated the live map cleanly, 77 against 145, and
+    then read 115-121 on an older chapter's red-sword nest that does not glow
+    at all. A template of a glowing badge scored its own kind 0.13-0.64,
+    because the arc it was cut with had moved on.
+
+    How much of the rim the arc covers survives the rotation: 14-19 of 24
+    slices on a glowing badge, 1-8 on a plain one, where the only gold is a
+    corner of the sword's hilt.
+
+    None when the badge is too near the frame's edge to see the whole rim —
+    half a rim cannot be counted honestly.
+    """
+    r_in = GLOW_RING[0] * scale
+    r_out = GLOW_RING[1] * scale
+    pad = int(np.ceil(r_out)) + 1
+    cx, cy = int(round(centre[0])), int(round(centre[1]))
+    y0, y1, x0, x1 = cy - pad, cy + pad, cx - pad, cx + pad
+    if y0 < 0 or x0 < 0 or y1 > frame.shape[0] or x1 > frame.shape[1]:
+        return None
+    hsv = cv2.cvtColor(frame[y0:y1, x0:x1], cv2.COLOR_BGR2HSV)
+    yy, xx = np.mgrid[-pad:pad, -pad:pad]
+    distance = np.hypot(xx, yy)
+    hue, saturation, value = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    lit = ((distance >= r_in) & (distance < r_out)
+           & (hue >= GLOW_HUE[0]) & (hue <= GLOW_HUE[1])
+           & (saturation >= GLOW_MIN_SATURATION) & (value >= GLOW_MIN_VALUE))
+    slices = ((np.degrees(np.arctan2(yy, xx)) + 360) % 360
+              * GLOW_SLICES / 360).astype(int)
+    return len(set(slices[lit].tolist()))
+
+
+def is_glowing(frame: np.ndarray, centre: Tuple[int, int],
+               scale: float = 1.0) -> bool:
+    """Whether the badge at ``centre`` is one of the glowing nests."""
+    covered = glow_sectors(frame, centre, scale)
+    return covered is not None and covered >= GLOW_SECTORS
 
 
 class ExplorationWorker(TaskWorker):
@@ -558,6 +625,13 @@ class ExplorationWorker(TaskWorker):
             self._control.click(target)
             self._sleep(AFTER_TAP_SECONDS)
             return True
+        # Glowing nests ahead of the boss, which reverses the order the comment
+        # above describes for ordinary nests — and that is the point. Beating
+        # the boss ends the chapter, so a glowing nest still standing at that
+        # moment is lost, and fighting it is what the player asked for.
+        target = self._glowing_nest()
+        if target is not None:
+            return self._enter_battle(target, "Glowing nest")
         target = self._control.find(TPL_BOSS, BOSS_THRESHOLD)
         if target is not None:
             return self._enter_battle(target, "Boss")
@@ -566,6 +640,29 @@ class ExplorationWorker(TaskWorker):
             return self._enter_battle(target, "Nest")
         self._sweep()
         return True
+
+    def _glowing_nest(self):
+        """A glowing nest in view, or None.
+
+        Every nest is looked at, not just the best match. The plain template
+        scores a plain badge 0.98-1.00 and a glowing one at most 0.90, so asking
+        for the single best always answered with a plain nest — and the 0.9
+        cut-off the plain nests use left a glowing one on its own mostly out of
+        reach. Lowered here to GLOW_FLOOR, which is safe only because nothing is
+        fought on that score alone: it must also show the glow.
+        """
+        nests = self._control.find_all(TPL_ENEMY, threshold=GLOW_FLOOR)
+        if not nests:
+            return None
+        try:
+            frame = self._control.full_shot()
+        except CaptureError:
+            return None
+        scale = self._geometry.scale[0]
+        for point in nests:
+            if is_glowing(frame, point, scale):
+                return point
+        return None
 
     def _enter_battle(self, target, what: str) -> bool:
         """Press a badge. There is no deploy board — this is the fight starting.
