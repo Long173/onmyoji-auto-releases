@@ -4,6 +4,21 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.19
+
+### Thám hiểm chương
+
+- Ổ quái phát sáng (có vệt vàng chạy quanh viền) giờ được nhận ra và đánh trước
+  tiên, trước cả boss. Trước đây tool không nhận ra chúng nên bỏ qua.
+
+### Bách khoa
+
+- Tắt Bách khoa Thức thần / Ngự hồn / Hiệu ứng. Đã có những trang web làm dữ
+  liệu đầy đủ hơn, nên tool chỉ tập trung vào phần auto.
+- Bản cài nhẹ hơn khoảng 24 MB nhờ bỏ dữ liệu Bách khoa.
+
+---
+
 ## 3.18
 
 ### Phá Kết Giới
