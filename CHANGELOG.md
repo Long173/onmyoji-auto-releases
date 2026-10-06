@@ -4,6 +4,24 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.20
+
+### Thám hiểm chương
+
+- "Đủ 30/30 vé thì đi phá kết giới" giờ chạy thật: trước đây tool không nhận ra
+  30/30 nên cứ farm map mãi. Bỏ nhãn thử nghiệm.
+
+### Phá Kết Giới
+
+- Bảng hội: thua một trận, game bắt chờ vài phút. Trước đây tool hiểu nhầm là
+  các kết giới từ chối nên bỏ qua hết rồi đứng im; giờ nó chờ rồi đánh tiếp.
+
+### Giao diện
+
+- Cửa sổ tool thu nhỏ được theo chiều dọc.
+
+---
+
 ## 3.19
 
 ### Thám hiểm chương
