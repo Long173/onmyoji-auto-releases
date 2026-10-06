@@ -462,7 +462,13 @@ class ExplorationWorker(TaskWorker):
             return False
         if self._control.find(TPL_EXPLORE, THRESHOLD) is None:
             return False
-        if self._tickets.is_full() is not True:
+        verdict = self._tickets.is_full()
+        # Logged every lap: the reading used to be silent, and a counter that was
+        # never read as full looked exactly like a counter that never was.
+        logger.info("Raid tickets on the chapter panel: %s", {
+            True: "30/30 — going to raid", False: "not full",
+        }.get(verdict, "unreadable"))
+        if verdict is not True:
             return False
         self._raid()
         return True

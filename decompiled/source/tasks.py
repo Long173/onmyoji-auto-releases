@@ -451,7 +451,7 @@ def build_event_clicker(hwnd, control, config, on_finished, on_error):
 EXPLORATION_FIELDS = (
     Field("chapter_point", POINT, "Chỗ nhấn vào chương",
           default=geometry.EXPLORATION_CHAPTER_POINT),
-    Field("raid_relay", TOGGLE, "Đủ 30/30 vé thì đi phá kết giới (thử nghiệm)",
+    Field("raid_relay", TOGGLE, "Đủ 30/30 vé thì đi phá kết giới",
           default=False),
     Field("", NOTE, "Tự đi ổ quái trong một chương: thấy ổ quái thì nhấn "
                     "vào (nhấn là vào trận luôn, không qua bảng xếp đội), "
@@ -475,11 +475,7 @@ EXPLORATION_FIELDS = (
                     "ảnh cả ô, nên 0/30, 6/30 hay 20/30 không thể bị nhận nhầm "
                     "thành 30/30; đọc không ra thì nó coi như chưa đủ và cứ "
                     "farm tiếp. Lưu ý "
-                    "nó vẫn không biết lúc nào hết sushi. "
-                    "Đang thử nghiệm: mới chạy đúng trên một tài khoản, và "
-                    "riêng cảnh 30/30 thì chưa chụp được ảnh game thật để đối "
-                    "chiếu — mới kiểm bằng chữ số thật ghép lại. Lần đầu bật, "
-                    "nên ngồi xem vài vòng rồi hẵng để chạy một mình. Nếu raid "
+                    "nó vẫn không biết lúc nào hết sushi. Nếu raid "
                     "kẹt không thoát, sau 15 phút tác vụ tự lấy lại cửa sổ và "
                     "quay về farm."),
 )

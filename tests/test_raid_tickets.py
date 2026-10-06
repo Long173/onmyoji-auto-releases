@@ -9,9 +9,9 @@ Everything is built from **real glyphs**, harvested out of one live capture of
 the top bar (`recordings/ticket/topbar.png` — the gold counter, the sushi
 counter and the ticket counter, same font, same size, 8 KB). Counters other than
 the one that was photographed are composed from those glyphs: that exercises the
-reading, and it is not a photograph of the game rendering them. The one reading
-that has never been photographed is 30/30 itself, which is stated in the module
-under test and is the reason these tests lean on the impostors instead.
+reading, and it is not a photograph of the game rendering them. A real 30/30
+has been photographed since; it lives in test_raid_tickets_live.py, whose
+fixture is committed.
 """
 from __future__ import annotations
 

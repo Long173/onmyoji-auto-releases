@@ -40,13 +40,13 @@ the box still holds what this module thinks it holds: if the bar moves, the
 window is an odd size, or the panel is not really on screen, the read fails
 loudly as :data:`UNREADABLE` instead of quietly answering "not full" forever.
 
-**30/30 itself has never been photographed.** Every measurement above comes from
-a counter reading 0/30, and the true-positive case is inferred: the digits "3"
-and "0" score 0.996 and 1.000 when the same glyphs are found elsewhere on the
-same bar, so the numerator's copies should behave the same way. The synthetic
-counters in the tests are built from those real glyphs and exercise the logic,
-but they are not a photograph of the game rendering 30/30. Until one exists, that
-is the one link in this chain that is reasoned rather than measured.
+**30/30 has been photographed since, and it found a bug the inference missed.**
+The measurements above came from a counter reading 0/30, and the full case was
+reasoned from them. The first real 30/30 (2026-10-06) read its digits exactly as
+predicted — "3" 0.973/0.996, "0" 0.963/0.980 — and was still never called full:
+the box's left edge cuts through the ticket icon, whose last columns became a
+sixth glyph. Runs touching either edge of the box are now discarded; the capture
+is in tests/fixtures/ticket and tests/test_raid_tickets_live.py reads it.
 """
 from __future__ import annotations
 
@@ -149,7 +149,14 @@ class TicketReader:
 
     def read_band(self, band: np.ndarray) -> Optional[bool]:
         """The reading itself, given the strip of pixels. Separated for tests."""
-        glyphs = runs_of_lit_columns(band)
+        # A run touching either edge of the box is something the box cut in
+        # half, not a glyph of the counter. The ticket icon ends at x=811 and
+        # the box starts at 805, so its edge always lands here — and at a real
+        # 30/30 it was read as a sixth glyph, which made the numerator three
+        # glyphs long and the counter "not full" forever. See
+        # tests/test_raid_tickets_live.py.
+        glyphs = [run for run in runs_of_lit_columns(band)
+                  if run[0] > 0 and run[1] < band.shape[1]]
         # "N/30" is four glyphs at least, five when the numerator has two.
         if len(glyphs) < 4:
             logger.debug("Ticket counter: %d glyphs, too few to be N/30", len(glyphs))
