@@ -56,3 +56,22 @@ def test_the_window_itself_fits(dashboard):
 
     assert minimum.width() <= available.width()
     assert minimum.height() <= available.height()
+
+
+@pytest.mark.parametrize("task_id", [spec.id for spec in __import__("tasks").TASKS])
+def test_no_page_holds_the_window_taller_than_the_design(dashboard, task_id):
+    """The window could not be dragged shorter at all, at 100% scaling.
+
+    The settings column on a task page did not scroll, so its explanatory notes
+    set a floor under the whole window — 937 px for Thám hiểm chương alone, and
+    the page stack takes the tallest floor of all its pages. With the title bar
+    and header on top, the window could not go under about 1200 px: on a
+    1392 px desktop that left the bottom edge nowhere to go.
+    """
+    from PyQt5 import QtWidgets
+
+    dashboard._show_page(task_id)
+    QtWidgets.QApplication.processEvents()
+
+    assert dashboard.minimumSizeHint().height() <= DESIGN_MINIMUM[1], (
+        "a page's content sets a floor taller than the window's own minimum")

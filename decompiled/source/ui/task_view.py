@@ -38,7 +38,8 @@ class ConfigPanel(QtWidgets.QWidget):
                  parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self.spec = spec
-        self.setFixedWidth(CONFIG_WIDTH)
+        # The width is held by the scroll area around this, not here: a fixed
+        # width on the panel itself would leave no room for the scrollbar.
 
         column = vbox(0, margins=(26, 24, 26, 24))
         column.addWidget(section_label("Cấu hình tác vụ"))
@@ -436,7 +437,7 @@ class TaskView(QtWidgets.QWidget):
 
         panel = ConfigPanel(spec, config, frame_source=self._any_frame)
         panel.optionChanged.connect(self.optionChanged)
-        row.addWidget(panel)
+        row.addWidget(self._scrolling(panel))
         row.addWidget(Divider(horizontal=False))
         row.addWidget(self._build_windows(), 1)
         self.setLayout(row)
@@ -452,6 +453,22 @@ class TaskView(QtWidgets.QWidget):
             if frame is not None:
                 return frame
         return None
+
+    @staticmethod
+    def _scrolling(panel: QtWidgets.QWidget) -> QtWidgets.QScrollArea:
+        """The settings column, in a scroll area of its own.
+
+        Without one, the column's notes set a minimum height under the whole
+        window — the page stack takes the tallest of its pages, and Thám hiểm
+        chương's notes alone asked 937 px. The window then could not be dragged
+        shorter than about 1200 px.
+        """
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll.setFixedWidth(CONFIG_WIDTH)
+        scroll.setWidget(panel)
+        return scroll
 
     def _build_windows(self) -> QtWidgets.QWidget:
         scroll = QtWidgets.QScrollArea()
