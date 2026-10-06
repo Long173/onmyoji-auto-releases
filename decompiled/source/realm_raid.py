@@ -204,6 +204,20 @@ REFRESH_PRESS_LIMIT = 3
 # between passes, so this only has to be bigger than the drift.
 SAME_ENEMY_WITHIN = 50
 CAPTURE_RETRY_SECONDS = 1.0
+# "Cooldown time is not yet up!" is the guild board telling the player to wait —
+# after a defeat it refuses *every* card for about five minutes (a live run lost
+# at 07:49 and fought again at 07:54). It is not one card refusing, and it used
+# to be read as one: eight presses per card struck all six off in turn. After
+# the popup, no card is opened for this long; the game is asked again after it.
+COOLDOWN_BACKOFF_SECONDS = 30.0
+# The skip list is wiped by a re-roll, and the guild board has none — so once
+# every live card on it is struck off, nothing ever cleared it. That run then sat
+# in front of five live barriers from 09:30 until somebody looked. With no
+# Refresh on screen and every card struck off for this long, the list is
+# forgiven and the cards tried again. A card that really cannot be raided costs
+# one more round of presses each time, which is cheap next to parking for good.
+REFUSAL_AMNESTY_SECONDS = 60.0
+AMNESTY_POLL_SECONDS = 1.0
 
 
 
@@ -279,6 +293,11 @@ class RealmRaidWorker(TaskWorker):
         # screen the loop did understand. See UNKNOWN_SCREEN_LIMIT.
         self._unknown_passes = 0
         self._escapes = 0
+        # When the game last said to wait, and since when every card on a board
+        # with no Refresh has been struck off. See COOLDOWN_BACKOFF_SECONDS and
+        # REFUSAL_AMNESTY_SECONDS.
+        self._cooldown_until = 0.0
+        self._all_refused_since: Optional[float] = None
 
     # ---------- lifecycle ----------
 
@@ -424,8 +443,13 @@ class RealmRaidWorker(TaskWorker):
             # the passes where it deliberately does nothing but re-read the
             # counter — those must not look like being adrift.
             self._recognised()
+            self._all_refused_since = None
             if self._owes_a_refresh:
                 # Recognised, deliberately idle: waiting for Refresh, not stuck.
+                return False
+            if time.monotonic() < self._cooldown_until:
+                # Recognised, deliberately idle: the game said to wait.
+                self._sleep(AMNESTY_POLL_SECONDS)
                 return False
             verdict = self._ticket_verdict()
             if verdict == TICKETS_GONE:
@@ -453,6 +477,9 @@ class RealmRaidWorker(TaskWorker):
                 return False
 
         if section is None:
+            if self._forgive_refusals():
+                self._recognised()
+                return False
             self._nothing_recognised()
         return False
 
@@ -821,7 +848,52 @@ class RealmRaidWorker(TaskWorker):
         if self._find(TPL_COOLDOWN, COOLDOWN_ACCURACY) is None:
             return False
         logger.info("Target on cooldown; dismissing popup")
+        self._note_cooldown()
         self._dismiss_popup()
+        return True
+
+    def _note_cooldown(self) -> None:
+        """The game said to wait: hold off, and do not blame the card for it.
+
+        The presses that ran into the cooldown are written off rather than
+        counted towards START_REFUSAL_LIMIT — see COOLDOWN_BACKOFF_SECONDS for
+        what counting them did to a guild board.
+        """
+        self._start_clicks = 0
+        self._cooldown_until = time.monotonic() + COOLDOWN_BACKOFF_SECONDS
+
+    def _forgive_refusals(self) -> bool:
+        """Wipe the skip list on a board that has no other way to wipe it.
+
+        True while this is what the loop is doing — waiting out the amnesty or
+        having just granted it — so the pass counts as recognised rather than
+        adrift. False when it does not apply: nothing struck off, no cards on
+        screen (some other screen entirely), or a Refresh button, whose re-roll
+        is the proper way out and is handled elsewhere.
+        """
+        if not self._refused:
+            self._all_refused_since = None
+            return False
+        if not self._control.find_all(TPL_SECTION, threshold=self._accuracy):
+            self._all_refused_since = None
+            return False
+        if self._find(TPL_REFRESH) is not None:
+            self._all_refused_since = None
+            return False
+        now = time.monotonic()
+        if self._all_refused_since is None:
+            self._all_refused_since = now
+            logger.info(
+                "Every card left on this board is struck off and it has no "
+                "Refresh — trying them again in %.0fs", REFUSAL_AMNESTY_SECONDS)
+        elif now - self._all_refused_since >= REFUSAL_AMNESTY_SECONDS:
+            logger.warning("Forgiving %d struck-off card(s) on a board with no "
+                           "Refresh", len(self._refused))
+            self._refused.clear()
+            self._last_enemy = None
+            self._all_refused_since = None
+            return True
+        self._sleep(AMNESTY_POLL_SECONDS)
         return True
 
     def _handle_claim_reward(self) -> bool:

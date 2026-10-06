@@ -169,6 +169,7 @@ def stub_control(monkeypatch):
         ("CAPTURE_RETRY_SECONDS", 0.01),
         ("REWARD_CLICK_GAP_SECONDS", 0.01),
         ("RESIZE_SETTLE_SECONDS", 0.0),
+        ("AMNESTY_POLL_SECONDS", 0.01),
     ):
         monkeypatch.setattr(realm_raid, name, value)
 
@@ -1438,3 +1439,80 @@ def test_the_floor_sits_below_anything_that_might_be_the_button(stub_control):
     """Set too high it would stall working raids, so it only blocks the absent."""
     assert realm_raid.ATTACK_FLOOR < realm_raid.DEFAULT_ACCURACY
     assert realm_raid.ATTACK_FLOOR > 0.44, "an absent button scored 0.44 in the wild"
+
+
+# ── the guild board's cooldown ──────────────────────────────────────────────
+#
+# A live guild run on 2026-10-04: one defeat at 07:49, then "Cooldown time is
+# not yet up!" on every card for five minutes. The loop read each of those as
+# the card refusing it, struck all six off one after another, and the guild
+# board has no Refresh to wipe that list — so once the last card it had not
+# struck off was broken, it parked in front of five live barriers for good.
+
+GUILD_CARD = (633, 252)
+
+
+def test_a_cooldown_is_not_counted_against_the_card(stub_control):
+    worker = stub_control(matches={realm_raid.TPL_COOLDOWN: (300, 450)})
+    worker._last_enemy = GUILD_CARD
+    worker._start_clicks = realm_raid.START_REFUSAL_LIMIT - 1
+
+    assert worker._handle_cooldown_popup()
+
+    assert worker._start_clicks == 0, "a wait the game asked for counted as a refusal"
+    assert not worker._has_refused(GUILD_CARD)
+
+
+def test_no_card_is_opened_while_the_cooldown_runs(stub_control, monkeypatch):
+    monkeypatch.setattr(realm_raid, "COOLDOWN_BACKOFF_SECONDS", 60.0)
+    worker = stub_control(many={realm_raid.TPL_SECTION: [GUILD_CARD]})
+    worker._handle_cooldown_popup = lambda: False
+    worker._note_cooldown()
+
+    worker._step()
+
+    assert worker._control.clicks == [], "opened a card the game just said to wait for"
+
+
+def test_cards_are_opened_again_once_the_cooldown_has_passed(stub_control, monkeypatch):
+    monkeypatch.setattr(realm_raid, "COOLDOWN_BACKOFF_SECONDS", 0.0)
+    worker = stub_control(many={realm_raid.TPL_SECTION: [GUILD_CARD]})
+    worker._note_cooldown()
+
+    worker._step()
+
+    assert GUILD_CARD in worker._control.clicks
+
+
+def test_a_guild_board_with_every_card_struck_off_forgives_them(stub_control, monkeypatch):
+    """No Refresh to wipe the list, so after a while the list wipes itself."""
+    monkeypatch.setattr(realm_raid, "REFUSAL_AMNESTY_SECONDS", 0.0)
+    worker = stub_control(many={realm_raid.TPL_SECTION: [GUILD_CARD]})
+    worker._refused.append(GUILD_CARD)
+
+    worker._step()      # first sight of a board it will not touch: starts the clock
+    worker._step()      # clock has run out
+
+    assert worker._pick_enemy() == GUILD_CARD, "parked in front of a live barrier"
+
+
+def test_the_amnesty_waits_before_forgiving(stub_control, monkeypatch):
+    monkeypatch.setattr(realm_raid, "REFUSAL_AMNESTY_SECONDS", 600.0)
+    worker = stub_control(many={realm_raid.TPL_SECTION: [GUILD_CARD]})
+    worker._refused.append(GUILD_CARD)
+
+    worker._step()
+    worker._step()
+
+    assert worker._pick_enemy() is None, "forgave a refusal straight away"
+    assert worker._control.clicks == []
+
+
+def test_a_board_with_refresh_is_re_rolled_not_forgiven(stub_control, monkeypatch):
+    """Where the list can be re-rolled, that stays the way out."""
+    monkeypatch.setattr(realm_raid, "REFUSAL_AMNESTY_SECONDS", 0.0)
+    worker = stub_control(matches={realm_raid.TPL_REFRESH: REFRESH_AT},
+                          many={realm_raid.TPL_SECTION: [GUILD_CARD]})
+    worker._refused.append(GUILD_CARD)
+
+    assert not worker._forgive_refusals()
