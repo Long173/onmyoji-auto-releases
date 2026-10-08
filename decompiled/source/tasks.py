@@ -470,7 +470,9 @@ EXPLORATION_FIELDS = (
                     "nguyên 30/30 là phí vé. Nó đọc từng chữ số chứ không so "
                     "ảnh cả ô, nên 0/30, 6/30 hay 20/30 không thể bị nhận nhầm "
                     "thành 30/30; đọc không ra thì nó coi như chưa đủ và cứ "
-                    "farm tiếp. Lưu ý "
+                    "farm tiếp. Bấm Bắt đầu lúc đang ở bảng phá kết giới "
+                    "(kể cả khi đã hết vé) thì tác vụ tự đóng bảng rồi đi farm. "
+                    "Lưu ý "
                     "nó vẫn không biết lúc nào hết sushi. Nếu raid "
                     "kẹt không thoát, sau 15 phút tác vụ tự lấy lại cửa sổ và "
                     "quay về farm."),

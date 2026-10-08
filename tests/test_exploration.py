@@ -917,3 +917,73 @@ def test_a_withheld_drag_does_not_turn_the_sweep_around(build):
 
     assert worker._direction == facing, "turned around on a drag never sent"
     assert worker._control.drags == []
+
+
+# ── starting on the raid board ──────────────────────────────────────────────
+#
+# Reported: with "đủ 30/30 vé thì đi phá kết giới" on, a player who pressed
+# Start while the game sat on the Realm Raid board — tickets at 0/30 — got a map
+# farm that did nothing at all. No step recognised the board, so the loop waited
+# it out forever. The board has its own way out, and this task already uses it
+# after a relay raid.
+
+
+def test_starting_on_the_raid_board_closes_it_to_go_farm(build, raider):
+    worker = build(seen={exploration.TPL_RAID_BOARD_CLOSE: (1058, 118),
+                         exploration.TPL_WORLD_MAP: (990, 417)},
+                   appears_after={exploration.TPL_WORLD_MAP: 1},
+                   gone_after={exploration.TPL_RAID_BOARD_CLOSE: 1},
+                   raid_relay=True)
+
+    worker._step()
+
+    assert worker.control.clicks[0] == geometry.RAID_CLOSE_POINT
+    assert raider["ran"] == 0, "raided from a board it was only meant to leave"
+
+
+def test_the_board_is_left_whether_or_not_the_relay_is_on(build):
+    worker = build(seen={exploration.TPL_RAID_BOARD_CLOSE: (1058, 118),
+                         exploration.TPL_WORLD_MAP: (990, 417)},
+                   appears_after={exploration.TPL_WORLD_MAP: 1},
+                   gone_after={exploration.TPL_RAID_BOARD_CLOSE: 1})
+
+    worker._step()
+
+    assert worker.control.clicks == [geometry.RAID_CLOSE_POINT]
+
+
+def test_after_leaving_the_board_the_chapter_is_opened(build):
+    worker = build(seen={exploration.TPL_RAID_BOARD_CLOSE: (1058, 118),
+                         exploration.TPL_WORLD_MAP: (990, 417)},
+                   appears_after={exploration.TPL_WORLD_MAP: 1},
+                   gone_after={exploration.TPL_RAID_BOARD_CLOSE: 1})
+
+    worker._step()
+    worker._step()
+
+    assert worker.control.clicks == [geometry.RAID_CLOSE_POINT,
+                                     geometry.EXPLORATION_CHAPTER_POINT]
+
+
+@pytest.mark.parametrize("name, on_board", [
+    ("guild.png", True),
+    ("individual.png", True),
+    # The highest any non-board frame scored in that spot, out of 437 frames
+    # of the exploration map and its panels.
+    ("map-closest.png", False),
+])
+def test_the_board_x_is_told_apart_on_real_captures(name, on_board):
+    """Cut from live frames at RAID_BOARD_CLOSE_REGION, so a match here is a
+    match where the step looks."""
+    import cv2
+
+    folder = Path(__file__).parent / "fixtures" / "raid_board"
+    crop = cv2.imdecode(np.fromfile(str(folder / name), np.uint8), cv2.IMREAD_GRAYSCALE)
+    tpl = cv2.imdecode(np.fromfile(exploration.TPL_RAID_BOARD_CLOSE, np.uint8),
+                       cv2.IMREAD_GRAYSCALE)
+    (x1, y1), (x2, y2) = exploration.RAID_BOARD_CLOSE_REGION
+    assert crop.shape == (y2 - y1, x2 - x1)
+
+    score = float(cv2.matchTemplate(crop, tpl, cv2.TM_CCOEFF_NORMED).max())
+
+    assert (score > exploration.RAID_BOARD_THRESHOLD) is on_board, score

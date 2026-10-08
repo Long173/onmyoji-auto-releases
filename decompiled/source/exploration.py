@@ -151,6 +151,8 @@ TPL_BOSS = template("Exploration", "boss.png")
 TPL_MAP_REWARD = template("Exploration", "mapReward.png")
 TPL_CLAIM_REWARD = template("Exploration", "claimReward.png")
 TPL_RAID_ENTRY = template("Exploration", "raidEntry.png")
+# The red X on the Realm Raid board, shared with the raid task.
+TPL_RAID_BOARD_CLOSE = template("RealmRaid", "exit.png")
 
 # --- Tuning ----------------------------------------------------------------
 # Thresholds. 0.9 everywhere the measured gap is wide; the world map is the one
@@ -196,6 +198,13 @@ REWARD_THRESHOLD = 0.85
 # whatever is behind it — fell to 0.710 over a pale one. Neither is enough
 # alone, so both are consulted; see :meth:`_on_world_map`.
 RAID_ENTRY_THRESHOLD = 0.9
+# The Realm Raid board's red X, looked for only around where the board draws it.
+# On real boards — individual, guild, one with a card's popup open — it scored
+# 0.978-0.989 there; over every other screen recorded for this app (the
+# exploration map and panels, the town, Duel, the souls room, the Demon Parade)
+# the best anything managed in that spot was 0.639.
+RAID_BOARD_THRESHOLD = 0.85
+RAID_BOARD_CLOSE_REGION = ((988, 58), (1122, 178))
 # Tries at a navigation step before giving up and going back to farming.
 NAV_ATTEMPTS = 3
 NAV_SETTLE_SECONDS = 2.5
@@ -325,6 +334,7 @@ class ExplorationWorker(TaskWorker):
         self._back_arrow = self._geometry.point(geometry.EXPLORATION_BACK_ARROW)
         self._raid_entry = self._geometry.point(geometry.RAID_ENTRY_POINT)
         self._raid_close = self._geometry.point(geometry.RAID_CLOSE_POINT)
+        self._raid_close_region = self._geometry.region(RAID_BOARD_CLOSE_REGION)
 
         self._nests = 0
         self._rewards = 0
@@ -405,6 +415,7 @@ class ExplorationWorker(TaskWorker):
             self._handle_wanted_invite,
             self._dismiss_reward,
             self._close_claim_panel,
+            self._leave_a_raid_board,
             self._raid_if_tickets_are_full,
             self._enter_chapter,
             self._work_the_map,
@@ -444,6 +455,26 @@ class ExplorationWorker(TaskWorker):
         logger.info("Closing the reward panel")
         self._control.click(self._claim_dismiss)
         self._sleep(AFTER_TAP_SECONDS)
+        return True
+
+    def _leave_a_raid_board(self) -> bool:
+        """On the Realm Raid board outside a relay: close it and go farm.
+
+        A run started from the raid board did nothing at all. No step here
+        recognised it, so the loop waited for it to go away — reported by a
+        player who had spent their tickets, pressed Start on the board at 0/30,
+        and expected the map farm to take it from there. It now leaves the way a
+        relay raid does, and the world map step opens the chapter; if the
+        tickets are full by then, the chapter panel sends it back to raid.
+
+        A relay raid never reaches this: it runs to the end inside
+        :meth:`_raid`, which leaves the board itself before the loop resumes.
+        """
+        if self._control.find(TPL_RAID_BOARD_CLOSE, RAID_BOARD_THRESHOLD,
+                              region=self._raid_close_region) is None:
+            return False
+        logger.info("On the Realm Raid board — closing it to go and farm")
+        self._leave_the_raid_board()
         return True
 
     def _raid_if_tickets_are_full(self) -> bool:
