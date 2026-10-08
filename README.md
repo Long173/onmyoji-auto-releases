@@ -6,6 +6,9 @@
 game cùng lúc**: Phá Kết Giới, Ném đậu (Demon Parade), Thám hiểm chương, Phụ bản
 ngự hồn, và Event.
 
+Mỗi tác vụ có video hướng dẫn ngắn: bấm **Xem video hướng dẫn** trên trang
+của tác vụ đó trong tool.
+
 Bách khoa Thức thần / Ngự hồn / Hiệu ứng đã tắt từ bản 3.19 — đã có những trang
 web làm đầy đủ dữ liệu hơn, nên tool chỉ tập trung vào phần auto.
 

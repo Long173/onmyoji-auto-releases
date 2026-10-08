@@ -458,7 +458,7 @@ class AutoWindow(FramelessWindow):
         self._header.set_page(
             spec.kicker, spec.name, spec.summary,
             "Bắt đầu tác vụ này", spec.is_available,
-            self._everything_is_running(self._page),
+            self._everything_is_running(self._page), spec.video,
         )
 
     def _everything_is_running(self, task_id: str = "") -> bool:

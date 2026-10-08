@@ -155,6 +155,10 @@ class TaskSpec:
     fields: Tuple[Field, ...] = ()
     build: Optional[Builder] = None
     todo: str = ""
+    # A tutorial for the task, linked from its page header. Hosted on YouTube
+    # rather than shipped: a video in the bundle would add tens of MB to every
+    # download, and a link can be re-recorded without a release.
+    video: str = ""
 
     @property
     def is_available(self) -> bool:
@@ -515,6 +519,7 @@ TASKS: Tuple[TaskSpec, ...] = (
         # reports no battle count.
         fields=REALM_RAID_FIELDS,
         build=build_realm_raid,
+        video="https://youtu.be/x82jNG8wTIk",
     ),
     TaskSpec(
         id="beans",
@@ -525,6 +530,7 @@ TASKS: Tuple[TaskSpec, ...] = (
         progress_label="vòng đã chơi",
         fields=PARADE_FIELDS,
         build=build_demon_parade,
+        video="https://youtu.be/Te61UezEzU4",
     ),
     TaskSpec(
         id="event",
@@ -535,6 +541,7 @@ TASKS: Tuple[TaskSpec, ...] = (
         progress_label="lần nhấn",
         fields=EVENT_FIELDS,
         build=build_event_clicker,
+        video="https://youtu.be/Zut8jUeUx-k",
     ),
     TaskSpec(
         id="exploration",
@@ -545,6 +552,7 @@ TASKS: Tuple[TaskSpec, ...] = (
         progress_label="ổ đã đánh",
         fields=EXPLORATION_FIELDS,
         build=build_exploration,
+        video="https://youtu.be/2VhzkAez3JE",
     ),
     TaskSpec(
         id="souls",
@@ -555,6 +563,7 @@ TASKS: Tuple[TaskSpec, ...] = (
         progress_label="trận đã đánh",
         fields=SOULS_FIELDS,
         build=build_souls_dungeon,
+        video="https://youtu.be/TF_BSg7yK6c",
     ),
 )
 
