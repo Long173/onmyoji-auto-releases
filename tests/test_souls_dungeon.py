@@ -460,3 +460,77 @@ def test_one_cached_frame_per_pass(worker):
 
     assert made._control.frames_begun == made._control.frames_ended
     assert made._control.frames_begun >= made._iteration - 1
+
+
+# ── the player's cursor over the game ───────────────────────────────────────
+#
+# Clicks are withheld while the cursor rests on the game window, and the whole
+# pass used to be skipped with them — so a battle whose result screen came and
+# went under the player's mouse was never counted, and "Dừng sau 30 trận" ran
+# past 30. Counting only looks; it is the clicking that has to wait.
+
+RESULT = {souls_dungeon.TPL_TAP_CONTINUE: (561, 610)}
+
+
+@pytest.fixture
+def quick_hold(monkeypatch):
+    import task_worker
+
+    monkeypatch.setattr(task_worker, "CURSOR_HOLD_POLL_SECONDS", 0.01)
+
+
+def test_a_result_under_the_cursor_is_still_counted(worker, quick_hold):
+    made = worker(matches=dict(RESULT))
+    made._control.clicking = False
+
+    made._step()
+
+    assert made.progress == 1, "the battle went uncounted because of the cursor"
+    assert made._control.clicks == [], "clicked while the player had the mouse"
+
+
+def test_a_result_lingering_under_the_cursor_counts_once(worker, quick_hold):
+    made = worker(matches=dict(RESULT))
+    made._control.clicking = False
+
+    for _ in range(souls_dungeon.RESULT_CLEAR_PASSES * 3):
+        made._step()
+
+    assert made.progress == 1
+
+
+def test_once_the_cursor_leaves_the_same_result_is_tapped_not_recounted(
+        worker, quick_hold):
+    made = worker(matches=dict(RESULT))
+    made._control.clicking = False
+    made._step()
+    made._control.clicking = True
+
+    made._step()
+
+    assert made.progress == 1
+    assert made._control.clicks, "the result screen was never tapped away"
+
+
+def test_the_round_limit_is_reached_under_the_cursor_too(worker, quick_hold):
+    made = worker(matches=dict(RESULT), rounds=1)
+    made._control.clicking = False
+
+    assert made._step() is True, "ran past the round limit"
+
+
+def test_an_invite_over_the_result_does_not_count_it_twice(worker, monkeypatch):
+    """The invite hides the result for a while; that is not the result ending."""
+    made = worker(matches=dict(RESULT))
+    made._step()                                         # counted: 1
+    made._control.matches.clear()                        # result hidden ...
+    monkeypatch.setattr(souls_dungeon.wanted_invite, "find_reply",
+                        lambda control, layout, accept: (500, 400))
+    for _ in range(souls_dungeon.RESULT_CLEAR_PASSES + 2):
+        made._step()                                     # ... by an invite
+    monkeypatch.setattr(souls_dungeon.wanted_invite, "find_reply",
+                        lambda control, layout, accept: None)
+    made._control.matches.update(RESULT)                 # still the same result
+    made._step()
+
+    assert made.progress == 1
