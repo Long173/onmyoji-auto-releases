@@ -15,7 +15,7 @@ import pytest
 QtWidgets = pytest.importorskip("PyQt5.QtWidgets")
 
 import tasks  # noqa: E402
-from conftest import SpyWorker, unbuilt_task_id  # noqa: E402
+from conftest import SIDE_LEFT, SIDE_RIGHT, SpyWorker, unbuilt_task_id  # noqa: E402
 from ui.task_sidebar import HOME, wiki_key  # noqa: E402
 
 RAID = "realm_raid"
@@ -403,7 +403,7 @@ def test_a_card_shows_only_its_own_tasks_figures(dashboard):
 SOULS = "souls"
 
 
-def test_the_role_control_is_on_the_card_not_the_panel(dashboard):
+def test_a_window_setting_is_on_the_card_not_the_panel(per_window_field, dashboard):
     """One value per window, so it cannot live on the task's shared panel."""
     import tasks
     from ui import controls
@@ -416,12 +416,12 @@ def test_the_role_control_is_on_the_card_not_the_panel(dashboard):
 
     card = view._cards[101]
     card_chips = [chip.text() for chip in card.findChildren(controls.Chip)]
-    assert tasks.LEADER in card_chips and tasks.MEMBER in card_chips
+    assert SIDE_LEFT in card_chips and SIDE_RIGHT in card_chips
 
     panel = view.findChild(ConfigPanel)
     assert panel is not None, "the shared config panel is gone"
     panel_chips = [chip.text() for chip in panel.findChildren(controls.Chip)]
-    assert tasks.LEADER not in panel_chips, "the role is also on the shared panel"
+    assert SIDE_LEFT not in panel_chips, "the setting is also on the shared panel"
 
 
 def test_a_card_does_not_balloon_when_only_one_column_fits(dashboard):
@@ -440,42 +440,37 @@ def test_a_card_does_not_balloon_when_only_one_column_fits(dashboard):
     )
 
 
-def test_choosing_a_role_reaches_that_window_only(dashboard):
-    import tasks
-
+def test_choosing_a_window_value_reaches_that_window_only(per_window_field, dashboard):
     dashboard._manager.select(101, SOULS)
     dashboard._manager.select(102, SOULS)
     dashboard._show_page(SOULS)
 
-    dashboard._on_window_option_changed(101, "role", tasks.MEMBER)
+    dashboard._on_window_option_changed(101, "side", SIDE_RIGHT)
 
-    assert dashboard._manager.get(101).options_for(SOULS)["role"] == tasks.MEMBER
-    assert dashboard._manager.get(102).options_for(SOULS)["role"] == tasks.LEADER
+    assert dashboard._manager.get(101).options_for(SOULS)["side"] == SIDE_RIGHT
+    assert dashboard._manager.get(102).options_for(SOULS)["side"] == SIDE_LEFT
 
 
-def test_a_window_role_is_remembered_for_the_next_launch(dashboard, relaunched):
-    import tasks
-
+def test_a_window_value_is_remembered_for_the_next_launch(
+        per_window_field, dashboard, relaunched):
     dashboard._manager.select(101, SOULS)
     dashboard._show_page(SOULS)
-    dashboard._on_window_option_changed(101, "role", tasks.MEMBER)
+    dashboard._on_window_option_changed(101, "side", SIDE_RIGHT)
 
     stored = relaunched()._remembered_options("陰陽師Onmyoji")
 
-    assert stored.get(SOULS, {}).get("role") == tasks.MEMBER
+    assert stored.get(SOULS, {}).get("side") == SIDE_RIGHT
 
 
-def test_a_remembered_role_is_applied_on_the_next_scan(dashboard):
-    import tasks
-
+def test_a_remembered_window_value_is_applied_on_the_next_scan(per_window_field, dashboard):
     dashboard._manager.select(101, SOULS)
     dashboard._show_page(SOULS)
-    dashboard._on_window_option_changed(101, "role", tasks.MEMBER)
+    dashboard._on_window_option_changed(101, "side", SIDE_RIGHT)
     dashboard._manager.get(101).window_options.clear()
 
     dashboard._on_scan()
 
-    assert dashboard._manager.get(101).options_for(SOULS)["role"] == tasks.MEMBER
+    assert dashboard._manager.get(101).options_for(SOULS)["side"] == SIDE_RIGHT
 
 
 # ── settings ────────────────────────────────────────────────────────────────

@@ -114,14 +114,19 @@ def souls():
     return tasks.BY_ID["souls"]
 
 
-def test_the_room_role_belongs_to_the_window_not_the_task():
-    """A co-op room has exactly one leader, so this cannot be one shared value."""
-    assert [f.key for f in souls().window_fields] == ["role"]
-    assert "role" not in {f.key for f in souls().shared_fields}
+def test_the_souls_task_asks_nobody_to_pick_leader_or_member():
+    """The loop tells leader from member by the Fight button; no setting for it."""
+    assert "role" not in {f.key for f in souls().fields}
+    assert souls().window_fields == ()
 
 
-def test_shared_and_window_fields_together_are_all_of_them():
-    spec = souls()
+def test_a_per_window_field_is_kept_off_the_shared_panel(per_window_field):
+    assert [f.key for f in per_window_field.window_fields] == ["side"]
+    assert "side" not in {f.key for f in per_window_field.shared_fields}
+
+
+def test_shared_and_window_fields_together_are_all_of_them(per_window_field):
+    spec = per_window_field
     assert set(f.key for f in spec.shared_fields) | set(
         f.key for f in spec.window_fields
     ) == set(f.key for f in spec.fields)
@@ -335,12 +340,6 @@ def test_the_forever_checkbox_reaches_the_worker(souls_worker):
 def test_without_the_checkbox_the_count_is_passed_through(souls_worker):
     assert build_souls(souls_worker, unlimited=False, rounds=12)["rounds"] == 12
 
-
-def test_the_role_becomes_the_workers_own_constant(souls_worker):
-    import souls_dungeon
-
-    assert build_souls(souls_worker, role=tasks.LEADER)["role"] == souls_dungeon.ROLE_LEADER
-    assert build_souls(souls_worker, role=tasks.MEMBER)["role"] == souls_dungeon.ROLE_MEMBER
 
 
 def test_the_app_wide_invite_reply_reaches_the_souls_worker(souls_worker):

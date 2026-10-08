@@ -46,7 +46,7 @@ onmyoji-auto/
 | `ui/wiki_page.py` | Trang bách khoa, nhúng trong cửa sổ chính |
 | `ui/fields.py` | Sinh control từ Field — dùng chung cho trang tác vụ và Cài đặt chung |
 | `ui/preview.py` | Khung hình game → QPixmap cho thumbnail |
-| `souls_dungeon.py` | Vòng lặp Phụ bản ngự hồn (chủ phòng / thành viên) |
+| `souls_dungeon.py` | Vòng lặp Phụ bản ngự hồn (cửa sổ nào có nút Bắt đầu thì bấm) |
 | `wanted_invite.py` | Trả lời lời mời truy — dùng chung cho mọi tác vụ |
 | `wiki/models.py` · `search.py` | Bản ghi wiki, tìm kiếm bỏ dấu |
 | `wiki/repository.py` | Nạp dữ liệu offline → cache → Supabase |

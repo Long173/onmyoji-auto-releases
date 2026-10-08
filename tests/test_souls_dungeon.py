@@ -22,7 +22,7 @@ import pytest
 
 import geometry
 import souls_dungeon
-from souls_dungeon import ROLE_LEADER, ROLE_MEMBER, SoulsDungeonWorker
+from souls_dungeon import SoulsDungeonWorker
 
 REFERENCE = geometry.REFERENCE_CLIENT_SIZE
 SETTLE = 0.4
@@ -131,9 +131,10 @@ def worker(monkeypatch):
 # ── configuration ───────────────────────────────────────────────────────────
 
 
-def test_rejects_an_unknown_role(worker):
-    with pytest.raises(ValueError):
-        worker(role="khan gia")
+def test_there_is_no_role_to_choose(worker):
+    """Leader and member run the same loop; the Fight button decides."""
+    with pytest.raises(TypeError):
+        worker(role="member")
 
 
 def test_rejects_a_negative_round_count(worker):
@@ -154,7 +155,7 @@ def test_a_result_screen_already_up_at_the_start_is_not_counted(worker):
     and reported three.
     """
     made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-                  role=ROLE_MEMBER, armed=False)
+                  armed=False)
 
     made._step()
     made._step()
@@ -166,7 +167,7 @@ def test_a_result_screen_already_up_at_the_start_is_not_counted(worker):
 def test_the_first_real_battle_after_that_start_is_counted(worker):
     """The guard must delay the count, not lose it."""
     made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-                  role=ROLE_MEMBER, armed=False)
+                  armed=False)
 
     made._step()                                   # the leftover screen
     made._control.matches.clear()                  # it clears; the room is back
@@ -180,8 +181,7 @@ def test_the_first_real_battle_after_that_start_is_counted(worker):
 
 def test_a_result_screen_counts_once_however_long_it_lingers(worker):
     """It sits there for seconds; the loop looks every second."""
-    made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-                  role=ROLE_MEMBER)
+    made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)})
     made.start()
     time.sleep(SETTLE)
     made.stop()
@@ -196,8 +196,7 @@ def test_a_result_screen_counts_once_however_long_it_lingers(worker):
 
 def test_one_quiet_pass_is_not_enough_to_count_again(worker):
     """A gap of one pass is the seam between a battle's two result screens."""
-    made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-                  role=ROLE_MEMBER)
+    made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)})
 
     made._step()                       # sees the result, counts 1
     assert made.progress == 1
@@ -217,7 +216,7 @@ def test_both_result_screens_are_tapped_in_the_same_bare_spot(worker):
     where the loot and the line-up are drawn. Players reported runs sticking
     there: the tap opened a reward instead of dismissing the screen.
     """
-    made = worker(matches={souls_dungeon.TPL_VICTORY: (840, 512)}, role=ROLE_MEMBER)
+    made = worker(matches={souls_dungeon.TPL_VICTORY: (840, 512)})
     made._step()
     assert made._control.clicks == [made._result_tap]
 
@@ -261,7 +260,7 @@ def test_one_battle_showing_both_result_screens_counts_once(worker):
     A real run logged three battles in 44 seconds — two of them 6 and 16
     seconds apart, which no fight takes.
     """
-    made = worker(matches={souls_dungeon.TPL_VICTORY: (840, 512)}, role=ROLE_MEMBER)
+    made = worker(matches={souls_dungeon.TPL_VICTORY: (840, 512)})
 
     made._step()                                   # Victory
     assert made.progress == 1
@@ -275,8 +274,7 @@ def test_one_battle_showing_both_result_screens_counts_once(worker):
 
 def test_a_genuinely_new_battle_still_counts(worker):
     """The debounce must not swallow the next battle."""
-    made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-                  role=ROLE_MEMBER)
+    made = worker(matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)})
 
     made._step()
     assert made.progress == 1
@@ -291,8 +289,7 @@ def test_a_genuinely_new_battle_still_counts(worker):
 
 def test_the_victory_banner_counts_as_the_same_battle(worker):
     """Victory then the reward screen is one battle, not two."""
-    made = worker(matches={souls_dungeon.TPL_VICTORY: (840, 512)},
-                  role=ROLE_MEMBER)
+    made = worker(matches={souls_dungeon.TPL_VICTORY: (840, 512)})
 
     made._step()
     assert made.progress == 1
@@ -309,7 +306,7 @@ def test_the_run_ends_at_the_requested_round_count(worker):
 
     made = worker(
         matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-        role=ROLE_MEMBER, rounds=1,
+        rounds=1,
         on_finished=lambda msg: (messages.append(msg), done.set()),
     )
     made.start()
@@ -325,7 +322,7 @@ def test_zero_rounds_means_it_keeps_going(worker):
     done = threading.Event()
     made = worker(
         matches={souls_dungeon.TPL_TAP_CONTINUE: (561, 610)},
-        role=ROLE_MEMBER, rounds=0,
+        rounds=0,
         on_finished=lambda _msg: done.set(),
     )
     made.start()
@@ -371,10 +368,18 @@ def test_the_saturation_threshold(worker, saturation, pressed):
     assert bool(made._control.clicks) is pressed
 
 
-def test_a_member_never_presses_fight(worker):
-    """There is no Fight button on a member's screen; pressing would be a stray click."""
-    made = worker(matches={souls_dungeon.TPL_FIGHT: (1072, 562)},
-                  saturation=200, role=ROLE_MEMBER)
+def test_every_window_presses_a_lit_fight_button(worker):
+    """No roles any more: whichever window shows the button is the leader."""
+    made = worker(matches={souls_dungeon.TPL_FIGHT: (1072, 562)}, saturation=200)
+
+    made._step()
+
+    assert made._control.clicks, "a window with a lit Fight button did not press it"
+
+
+def test_a_window_without_the_button_presses_nothing(worker):
+    """A member's screen has no Fight button, so it just waits for the result."""
+    made = worker(matches={}, saturation=200)
 
     made._step()
     made._step()

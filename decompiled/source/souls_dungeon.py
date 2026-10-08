@@ -1,11 +1,14 @@
 """Souls dungeon (Phụ bản ngự hồn) automation loop.
 
-Two roles share one loop, because the member's job is a subset of the leader's:
+There are no roles. Every window runs the same loop: press Fight when the
+button is lit, tap through the result screens, repeat. Only the room's leader
+ever has a Fight button, so a member's window simply never finds one and just
+taps its results — which is all a member has to do. The game recreates the room
+and re-invites on its own, so there is nothing else to drive.
 
-* **Leader** — press Fight when the room is ready, then tap through the result.
-  The game recreates the room and re-invites on its own, so there is nothing
-  else to drive.
-* **Member** — there is no Fight button; only the result screens are tapped.
+This used to be a per-window setting, leader or member, and getting it wrong was
+the one way to break a co-op run: two "leaders" was harmless, but a leader set
+as "member" sat in a full room forever. The button already says who leads.
 
 Deciding whether Fight can be pressed is deliberately *not* a template match.
 The lit and dead buttons carry the same lettering, so a greyscale template
@@ -48,8 +51,6 @@ TPL_VICTORY = template("SoulsDungeon", "victory.png")
 DEFAULT_ACCURACY = 0.9
 LOOP_LOG_EVERY = 30
 
-ROLE_LEADER = "leader"
-ROLE_MEMBER = "member"
 
 BATTLE_POLL_SECONDS = 3.0
 AFTER_FIGHT_SECONDS = 3.0
@@ -69,7 +70,6 @@ class SoulsDungeonWorker(TaskWorker):
     def __init__(
         self,
         hwnd: int,
-        role: str = ROLE_LEADER,
         rounds: int = 0,
         accept_wanted_quest: bool = False,
         accuracy: float = DEFAULT_ACCURACY,
@@ -77,12 +77,9 @@ class SoulsDungeonWorker(TaskWorker):
         on_error: Callback = None,
         control: Optional[GameControl] = None,
     ) -> None:
-        if role not in (ROLE_LEADER, ROLE_MEMBER):
-            raise ValueError("Role must be %r or %r" % (ROLE_LEADER, ROLE_MEMBER))
         if rounds < 0:
             raise ValueError("Rounds cannot be negative")
         super().__init__("SoulsDungeonWorker", hwnd, control, on_finished, on_error)
-        self._role = role
         self._rounds = rounds            # 0 means keep going until stopped
         self._accuracy = accuracy
         self._accept_wanted_quest = accept_wanted_quest
@@ -115,8 +112,7 @@ class SoulsDungeonWorker(TaskWorker):
 
     def run(self) -> None:
         logger.info(
-            "Souls worker starting — role=%s rounds=%s — %s",
-            self._role,
+            "Souls worker starting — rounds=%s — %s",
             self._rounds or "không giới hạn",
             self._control.describe(),
         )
@@ -199,7 +195,7 @@ class SoulsDungeonWorker(TaskWorker):
         if self._quiet_passes >= RESULT_CLEAR_PASSES:
             self._in_result = False
 
-        if self._role == ROLE_LEADER and self._handle_fight_button():
+        if self._handle_fight_button():
             return False
 
         self._sleep(BATTLE_POLL_SECONDS)
@@ -235,7 +231,7 @@ class SoulsDungeonWorker(TaskWorker):
     def _handle_result_screen(self) -> bool:
         """Tap through the end of a battle, counting it once.
 
-        Both roles do this, and it is the only thing a member does. The Victory
+        Every window does this; on a member's it is all that happens. The Victory
         banner is tapped as well as the reward screen: it advances on its own
         but slowly.
         """

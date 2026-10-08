@@ -204,6 +204,34 @@ def wiki_on(monkeypatch):
     monkeypatch.setattr(features, "WIKI", True)
 
 
+# A per-window setting for the tests of that machinery. The only real one was the
+# souls room role, and it went when the loop learned to tell leader from member
+# by the Fight button itself — but the seam stays, so a task that needs a value
+# per window can declare one, and these keep it honest.
+SIDE_LEFT, SIDE_RIGHT = "Trái", "Phải"
+
+
+@pytest.fixture
+def per_window_field(monkeypatch):
+    """The souls task, given a per-window setting called "side".
+
+    Request it *before* ``dashboard``: the window builds its pages from the
+    registry when it is created.
+    """
+    import dataclasses
+
+    import tasks
+
+    side = tasks.Field("side", tasks.SEGMENTED, "Bên", (SIDE_LEFT, SIDE_RIGHT),
+                       SIDE_LEFT, per_window=True)
+    patched = dataclasses.replace(tasks.BY_ID["souls"],
+                                  fields=(side,) + tasks.BY_ID["souls"].fields)
+    monkeypatch.setitem(tasks.BY_ID, "souls", patched)
+    monkeypatch.setattr(tasks, "TASKS", tuple(
+        patched if spec.id == "souls" else spec for spec in tasks.TASKS))
+    return patched
+
+
 @pytest.fixture
 def dashboard(qt_app, monkeypatch):
     """An AutoWindow wired to fake game windows and fake workers."""

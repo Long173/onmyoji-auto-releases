@@ -15,7 +15,7 @@ from auto.manager import SessionManager
 from auto.session import DONE, ERROR, IDLE, RUNNING, GameSession
 from auto.window_scanner import GameWindow
 
-from conftest import unbuilt_task_id  # noqa: E402
+from conftest import SIDE_LEFT, SIDE_RIGHT, unbuilt_task_id  # noqa: E402
 
 RAID = "realm_raid"
 
@@ -360,25 +360,25 @@ def test_choosing_another_task_leaves_the_running_one_alone():
 # ── settings that belong to one window ──────────────────────────────────────
 
 
-def test_two_windows_hold_different_roles(monkeypatch):
-    """The whole point: a co-op room has one leader and the rest are members."""
+def test_two_windows_hold_different_values(monkeypatch, per_window_field):
+    """The whole point: one value per window, not one for the task."""
     manager = managed(monkeypatch, [window(1), window(2)])
     manager.select(1, "souls")
     manager.select(2, "souls")
 
-    manager.get(1).set_option("souls", "role", tasks.LEADER)
-    manager.get(2).set_option("souls", "role", tasks.MEMBER)
+    manager.get(1).set_option("souls", "side", SIDE_LEFT)
+    manager.get(2).set_option("souls", "side", SIDE_RIGHT)
 
-    assert manager.config_for("souls", manager.get(1))["role"] == tasks.LEADER
-    assert manager.config_for("souls", manager.get(2))["role"] == tasks.MEMBER
+    assert manager.config_for("souls", manager.get(1))["side"] == SIDE_LEFT
+    assert manager.config_for("souls", manager.get(2))["side"] == SIDE_RIGHT
 
 
-def test_a_window_without_a_choice_gets_the_default():
+def test_a_window_without_a_choice_gets_the_default(per_window_field):
     session = GameSession(window())
-    assert session.options_for("souls")["role"] == tasks.LEADER
+    assert session.options_for("souls")["side"] == SIDE_LEFT
 
 
-def test_a_shared_setting_cannot_be_set_per_window():
+def test_a_shared_setting_cannot_be_set_per_window(per_window_field):
     """Otherwise one window would silently diverge on a task-wide value."""
     session = GameSession(window())
     session.set_option("souls", "rounds", 5)
@@ -386,57 +386,68 @@ def test_a_shared_setting_cannot_be_set_per_window():
     assert "rounds" not in session.window_options.get("souls", {})
 
 
-def test_the_window_layer_sits_on_top_of_the_task_layer(monkeypatch):
+def test_the_window_layer_sits_on_top_of_the_task_layer(monkeypatch, per_window_field):
     manager = managed(monkeypatch, [window(1)])
     manager.set_option("souls", "rounds", 7)
-    manager.get(1).set_option("souls", "role", tasks.MEMBER)
+    manager.get(1).set_option("souls", "side", SIDE_RIGHT)
 
     config = manager.config_for("souls", manager.get(1))
 
-    assert config["role"] == tasks.MEMBER, "the window's own choice was lost"
+    assert config["side"] == SIDE_RIGHT, "the window's own choice was lost"
     assert config["rounds"] == 7, "the task-wide setting was lost"
     assert config["wanted_invite"] == tasks.REFUSE, "the app-wide setting was lost"
 
 
-def test_without_a_session_only_the_shared_layers_apply(monkeypatch):
+def test_without_a_session_only_the_shared_layers_apply(monkeypatch, per_window_field):
     manager = managed(monkeypatch, [window(1)])
-    manager.get(1).set_option("souls", "role", tasks.MEMBER)
+    manager.get(1).set_option("souls", "side", SIDE_RIGHT)
 
-    assert manager.config_for("souls")["role"] == tasks.LEADER
+    assert manager.config_for("souls")["side"] == SIDE_LEFT
 
 
-def test_saved_window_options_are_restored():
+def test_saved_window_options_are_restored(per_window_field):
     session = GameSession(window())
-    session.load_options({"souls": {"role": tasks.MEMBER}})
+    session.load_options({"souls": {"side": SIDE_RIGHT}})
 
-    assert session.options_for("souls")["role"] == tasks.MEMBER
+    assert session.options_for("souls")["side"] == SIDE_RIGHT
 
 
-def test_saved_options_for_a_deleted_task_are_dropped():
+def test_saved_options_for_a_deleted_task_are_dropped(per_window_field):
     """Settings are keyed by window title and outlive the build that wrote them."""
     session = GameSession(window())
-    session.load_options({"da_xoa": {"role": "gi do"}, "souls": {"lac": 1}})
+    session.load_options({"da_xoa": {"side": "gi do"}, "souls": {"lac": 1}})
 
     assert "da_xoa" not in session.window_options
     assert session.window_options.get("souls", {}) == {}
 
 
-def test_the_role_reaches_the_worker(monkeypatch):
-    """Through all three layers and the builder, not just into a dict."""
-    import souls_dungeon
+def test_the_window_value_reaches_the_builder(monkeypatch, per_window_field):
+    """Through all three layers and into the builder, not just into a dict."""
+    import dataclasses
 
     made = []
-    monkeypatch.setattr(
-        souls_dungeon, "SoulsDungeonWorker",
-        lambda **kwargs: made.append(kwargs) or FakeWorker(**kwargs),
-    )
+
+    def build(hwnd, control, config, on_finished, on_error):
+        made.append(config)
+        return FakeWorker()
+
+    monkeypatch.setitem(tasks.BY_ID, "souls",
+                        dataclasses.replace(per_window_field, build=build))
     manager = managed(monkeypatch, [window(1)])
     manager.select(1, "souls")
-    manager.get(1).set_option("souls", "role", tasks.MEMBER)
+    manager.get(1).set_option("souls", "side", SIDE_RIGHT)
 
     manager.start(1)
 
-    assert made[-1]["role"] == souls_dungeon.ROLE_MEMBER
+    assert made[-1]["side"] == SIDE_RIGHT
+
+
+def test_saved_room_roles_from_older_builds_are_dropped():
+    """Windows still carry a "role" saved by builds that had one."""
+    session = GameSession(window())
+    session.load_options({"souls": {"role": "Thành viên"}})
+
+    assert session.window_options.get("souls", {}) == {}
 
 
 # ── session lifecycle ───────────────────────────────────────────────────────

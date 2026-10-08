@@ -340,21 +340,15 @@ def build_realm_raid(hwnd, control, config, on_finished, on_error):
 
 # ── Souls dungeon ───────────────────────────────────────────────────────────
 
-LEADER = "Chủ phòng"
-MEMBER = "Thành viên"
-
 SOULS_FIELDS = (
-    # Per window: a co-op room has exactly one leader, so this cannot be one
-    # value shared by every window running the task.
-    Field("role", SEGMENTED, "Vai trong phòng", (LEADER, MEMBER), LEADER,
-          per_window=True),
     Field("rounds", NUMBER, "Dừng sau", default=30, minimum=1, maximum=999,
           disabled_when=("unlimited", True)),
     Field("unlimited", TOGGLE, "Chạy vĩnh viễn", default=False),
-    Field("", NOTE, "Chủ phòng bấm Bắt đầu khi phòng đủ người; thành viên chỉ "
-                    "bấm qua màn kết thúc. Nút Bắt đầu được nhận biết bằng màu "
-                    "chứ không phải hình dạng — ngay sau mỗi trận nó còn xám "
-                    "vài giây trong lúc đồng đội quay lại."),
+    Field("", NOTE, "Không cần chọn chủ phòng hay thành viên: cửa sổ nào có "
+                    "nút Bắt đầu thì bấm khi phòng đủ người, cửa sổ không có "
+                    "nút đó chỉ bấm qua màn kết thúc. Nút Bắt đầu được nhận "
+                    "biết bằng màu chứ không phải hình dạng — ngay sau mỗi "
+                    "trận nó còn xám vài giây trong lúc đồng đội quay lại."),
 )
 
 
@@ -363,8 +357,6 @@ def build_souls_dungeon(hwnd, control, config, on_finished, on_error):
 
     return souls_dungeon.SoulsDungeonWorker(
         hwnd=hwnd,
-        role=(souls_dungeon.ROLE_LEADER if config["role"] == LEADER
-              else souls_dungeon.ROLE_MEMBER),
         # The worker's own convention is 0 = keep going; the UI says it with a
         # checkbox instead, so the number never has to mean two things.
         rounds=0 if as_bool(config["unlimited"]) else int(config["rounds"]),

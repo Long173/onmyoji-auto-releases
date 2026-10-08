@@ -59,6 +59,12 @@ Tầng 2 quan trọng hơn vẻ ngoài: **3 giây sau mỗi trận**, phòng đ�
 nhưng đồng đội chưa quay về, nút còn xám. Bot chỉ so hình dạng sẽ bấm ngay lúc
 đó, mỗi vòng.
 
+**Không có vai chủ phòng / thành viên.** Trước đây mỗi cửa sổ phải chọn vai, và
+chọn sai là cách duy nhất làm hỏng một phòng: chủ phòng bị đặt nhầm thành
+"thành viên" thì ngồi mãi trong phòng đủ người. Giờ mọi cửa sổ chạy cùng một
+vòng lặp — chỉ chủ phòng mới có nút Fight, nên cửa sổ thành viên không bao giờ
+tìm thấy nó và chỉ bấm qua màn kết thúc.
+
 ## Mỗi màn kết thúc có điểm bấm riêng
 
 Một trận có **hai** màn kết thúc, và chúng không giống nhau:
