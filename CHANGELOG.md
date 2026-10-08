@@ -4,6 +4,29 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.21
+
+### Mới
+
+- Mỗi tác vụ có video hướng dẫn: bấm **Xem video hướng dẫn** trên trang tác vụ.
+
+### Phụ bản ngự hồn
+
+- Không cần chọn chủ phòng hay thành viên nữa: cửa sổ nào có nút Bắt đầu thì
+  tool tự bấm.
+- Chuột đặt trên cửa sổ game vẫn được đếm trận.
+
+### Thám hiểm chương
+
+- Bấm Bắt đầu lúc đang ở bảng phá kết giới (kể cả khi hết vé) thì tool tự đóng
+  bảng rồi đi farm.
+
+### Phá Kết Giới
+
+- Bảng hội: hết thời gian chờ là đánh ngay, không còn trễ tới 40 giây.
+
+---
+
 ## 3.20
 
 ### Thám hiểm chương
