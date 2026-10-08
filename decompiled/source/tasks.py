@@ -349,6 +349,10 @@ SOULS_FIELDS = (
                     "nút đó chỉ bấm qua màn kết thúc. Nút Bắt đầu được nhận "
                     "biết bằng màu chứ không phải hình dạng — ngay sau mỗi "
                     "trận nó còn xám vài giây trong lúc đồng đội quay lại."),
+    Field("", NOTE, "Hết trận đầu, game hỏi có mời lại đồng đội không: tick "
+                    "\"Invite the teammate by default\" rồi bấm OK. Chỉ cần "
+                    "làm một lần — từ đó game tự tạo lại phòng và mời sau mỗi "
+                    "trận, tool không điều khiển việc mời."),
 )
 
 
@@ -544,8 +548,8 @@ TASKS: Tuple[TaskSpec, ...] = (
         id="souls",
         name="Phụ bản ngự hồn",
         kicker="Tác vụ · Souls",
-        summary="Chạy phòng co-op ngự hồn: chủ phòng bấm Bắt đầu, cả hai vai "
-                "tự bấm qua màn kết thúc. Game tự tạo lại phòng và mời.",
+        summary="Chạy phòng co-op ngự hồn: cửa sổ có nút Bắt đầu thì tự bấm, "
+                "mọi cửa sổ tự bấm qua màn kết thúc.",
         progress_label="trận đã đánh",
         fields=SOULS_FIELDS,
         build=build_souls_dungeon,
