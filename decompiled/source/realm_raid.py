@@ -204,12 +204,18 @@ REFRESH_PRESS_LIMIT = 3
 # between passes, so this only has to be bigger than the drift.
 SAME_ENEMY_WITHIN = 50
 CAPTURE_RETRY_SECONDS = 1.0
-# "Cooldown time is not yet up!" is the guild board telling the player to wait —
-# after a defeat it refuses *every* card for about five minutes (a live run lost
-# at 07:49 and fought again at 07:54). It is not one card refusing, and it used
-# to be read as one: eight presses per card struck all six off in turn. After
-# the popup, no card is opened for this long; the game is asked again after it.
-COOLDOWN_BACKOFF_SECONDS = 30.0
+# "Cooldown time is not yet up!" is the guild board telling the player to wait,
+# and the wait is for the whole board — every card answers the same until it is
+# over (confirmed by the owner, and on 2026-10-04 six cards in a row did). It is
+# not one card refusing, and it used to be read as one: eight presses per card
+# struck all six off in turn. After the popup no card is opened for this long.
+#
+# Short on purpose. The popup does not say how long is left — live waits ran
+# from 90 s to five minutes — so the only way to learn it is over is to ask
+# again, and every second here is a second added after it ends. It was 30 at
+# first, which with the ~9 s an attempt takes started the next battle up to
+# 40 s late; the owner watched a guild ticket sit unused and asked why.
+COOLDOWN_BACKOFF_SECONDS = 5.0
 # The skip list is wiped by a re-roll, and the guild board has none — so once
 # every live card on it is struck off, nothing ever cleared it. That run then sat
 # in front of five live barriers from 09:30 until somebody looked. With no
