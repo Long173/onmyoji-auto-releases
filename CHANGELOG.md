@@ -4,6 +4,20 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.24
+
+### Thám hiểm chương
+
+- Sửa lỗi đánh xong boss mà không nhặt hộp quà, cứ kéo bản đồ qua lại mãi —
+  xảy ra khi bản đồ trong game bị thu nhỏ (zoom out). Giờ nhặt được.
+
+### Kiểm tra virus
+
+- Phần mềm diệt virus còn báo giờ ghi đúng tên như trên trang VirusTotal:
+  SecureAge (APEX) — một phần mềm, không phải hai.
+
+---
+
 ## 3.23
 
 ### Mới
@@ -46,8 +60,8 @@ có virus — đây là lý do và những gì đã làm:
   dùng bản làm sẵn. Bản 3.22 chỉ còn **1/71** phần mềm báo. Windows Defender,
   Kaspersky, BitDefender, Avast… đều báo sạch.
 - **Vì sao còn 1:** vẫn còn một phần mềm báo, và lần nào cũng chỉ là nhãn
-  chung "Malicious" (độc hại) — ở bản thử là SecureAge, ở bản phát hành là
-  APEX. Vài phần mềm như vậy báo hầu hết file .exe chưa có **chữ ký số** — một
+  chung "Malicious" (độc hại) — đó là SecureAge (VirusTotal có chỗ ghi là
+  APEX, tên sản phẩm của chính hãng này). Vài phần mềm như vậy báo hầu hết file .exe chưa có **chữ ký số** — một
   loại giấy chứng nhận người làm phần mềm phải mua hằng năm — và không chỉ ra
   mã độc cụ thể nào. Muốn hết hẳn thì phải mua chữ ký số; tool miễn phí nên
   hiện chưa có.
