@@ -14,7 +14,7 @@ import ctypes
 import logging
 import random
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Sequence, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -390,6 +390,23 @@ class GameControl:
             self._templates[key] = template
         return template
 
+    def _sized_template(self, template_path: str, gray: bool,
+                        size: float) -> np.ndarray:
+        """The template at ``size`` times its own size, memoised like the rest.
+
+        Size 1.0 goes straight through ``_template``, so a search at one size
+        is exactly what it was before sizes existed.
+        """
+        if size == 1.0:
+            return self._template(template_path, gray)
+        key = (template_path, gray, size)
+        template = self._templates.get(key)
+        if template is None:
+            template = cv2.resize(self._template(template_path, gray), None,
+                                  fx=size, fy=size, interpolation=cv2.INTER_AREA)
+            self._templates[key] = template
+        return template
+
     def _reference_scale(self) -> Tuple[float, float]:
         """How much this window's pixels must stretch to reach template scale.
 
@@ -465,8 +482,15 @@ class GameControl:
         region: Optional[Region] = None,
         gray: bool = True,
         delay: float = DEFAULT_MATCH_DELAY_SECONDS,
+        scales: Sequence[float] = (1.0,),
     ) -> Tuple[float, Point]:
-        """Return ``(score, centre)`` where centre is in client coordinates."""
+        """Return ``(score, centre)`` where centre is in client coordinates.
+
+        ``scales`` are template sizes to try, relative to the template as cut;
+        the best score across them wins. For things the game draws at more than
+        one size: the exploration map can be zoomed out, and its nests shrink
+        with it, while the frame itself is still at reference scale.
+        """
         # Only when a capture is really coming. A loop pass matches a dozen
         # templates against **one** cached frame, and sleeping before each of
         # them cannot change what any of them sees — the picture is already
@@ -480,7 +504,6 @@ class GameControl:
         # cache (every ``_sleep``) makes the next match pay it again.
         if delay and self._will_capture():
             time.sleep(delay)
-        template = self._template(template_path, gray)
         # Everything below works at template scale, and is converted back to the
         # window's own pixels once, at the end.
         scale_x, scale_y = self._reference_scale()
@@ -494,15 +517,19 @@ class GameControl:
             source = frame[origin[1]:round(y2 * scale_y),
                            origin[0]:round(x2 * scale_x)]
 
-        t_height, t_width = template.shape[:2]
-        if source.shape[0] < t_height or source.shape[1] < t_width:
-            raise ValueError(
-                "Search area %dx%d is smaller than template %s (%dx%d)"
-                % (source.shape[1], source.shape[0], template_path, t_width, t_height)
-            )
-
-        result = cv2.matchTemplate(source, template, cv2.TM_CCOEFF_NORMED)
-        _, score, _, top_left = cv2.minMaxLoc(result)
+        score, top_left, t_width, t_height = -1.0, (0, 0), 0, 0
+        for size in scales:
+            template = self._sized_template(template_path, gray, size)
+            height, width = template.shape[:2]
+            if source.shape[0] < height or source.shape[1] < width:
+                raise ValueError(
+                    "Search area %dx%d is smaller than template %s (%dx%d)"
+                    % (source.shape[1], source.shape[0], template_path, width, height)
+                )
+            result = cv2.matchTemplate(source, template, cv2.TM_CCOEFF_NORMED)
+            _, best, _, where = cv2.minMaxLoc(result)
+            if best > score:
+                score, top_left, t_width, t_height = best, where, width, height
         # Back into the window's own pixels — a click has to land where the
         # window really is, not where the stretched copy put it.
         centre_x = origin[0] + top_left[0] + t_width // 2
@@ -519,9 +546,10 @@ class GameControl:
         region: Optional[Region] = None,
         gray: bool = True,
         delay: float = DEFAULT_MATCH_DELAY_SECONDS,
+        scales: Sequence[float] = (1.0,),
     ) -> Optional[Point]:
         """Centre of the best match above ``threshold``, else ``None``."""
-        score, centre = self.match(template_path, region, gray, delay)
+        score, centre = self.match(template_path, region, gray, delay, scales)
         if score > threshold:
             logger.debug("Matched %s score=%.3f at %s", template_path, score, centre)
             return centre
@@ -534,6 +562,7 @@ class GameControl:
         gray: bool = True,
         delay: float = DEFAULT_MATCH_DELAY_SECONDS,
         spacing: int = MATCH_SPACING,
+        scales: Sequence[float] = (1.0,),
     ) -> List[Point]:
         """Every copy of the template above ``threshold``, in reading order.
 
@@ -547,29 +576,34 @@ class GameControl:
         within ``spacing`` of an already-accepted one are the same copy and are
         dropped. What comes back is ordered by row and then across, which is
         what lets a caller simply walk the list.
+
+        With several ``scales``, one copy lights up at each size it nearly fits;
+        the clustering below folds those into one point, its best.
         """
         if delay and self._will_capture():
             time.sleep(delay)
-        template = self._template(template_path, gray)
         scale_x, scale_y = self._reference_scale()
         frame = self._search_frame(gray)
-        t_height, t_width = template.shape[:2]
-        if frame.shape[0] < t_height or frame.shape[1] < t_width:
-            raise ValueError(
-                "Search area %dx%d is smaller than template %s (%dx%d)"
-                % (frame.shape[1], frame.shape[0], template_path, t_width, t_height)
-            )
-
-        result = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
-        hits = np.argwhere(result >= threshold)
-        if hits.size == 0:
+        candidates: List[Tuple[float, Point]] = []
+        for size in scales:
+            template = self._sized_template(template_path, gray, size)
+            t_height, t_width = template.shape[:2]
+            if frame.shape[0] < t_height or frame.shape[1] < t_width:
+                raise ValueError(
+                    "Search area %dx%d is smaller than template %s (%dx%d)"
+                    % (frame.shape[1], frame.shape[0], template_path, t_width, t_height)
+                )
+            result = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
+            for y, x in np.argwhere(result >= threshold):
+                candidates.append((float(result[y, x]),
+                                   (int(x) + t_width // 2, int(y) + t_height // 2)))
+        if not candidates:
             return []
         # Strongest first, so the point kept for each cluster is its best pixel
         # rather than whichever the scan reached first.
-        order = sorted(hits, key=lambda yx: -result[yx[0], yx[1]])
+        candidates.sort(key=lambda hit: -hit[0])
         kept: List[Point] = []
-        for y, x in order:
-            centre = (int(x) + t_width // 2, int(y) + t_height // 2)
+        for _score, centre in candidates:
             if any(abs(centre[0] - k[0]) < spacing and abs(centre[1] - k[1]) < spacing
                    for k in kept):
                 continue

@@ -160,6 +160,20 @@ TPL_RAID_BOARD_CLOSE = template("RealmRaid", "exit.png")
 # 0.905 while the best frame that is not scored 0.453. Anything in between would
 # do; 0.85 sits in the middle of a gap half the scale wide.
 THRESHOLD = 0.9
+# The exploration map can be drawn smaller than the captures the badge
+# templates were cut from: one player's map showed every badge at about 0.88 of
+# its size while the UI on top stayed full size, so it is the map's own zoom.
+# There the plain nest scored 0.835 and the boss 0.639 at full size, both under
+# their cut-offs, and that run fought four nests then swept for an hour beside
+# a nest and the boss it could not see. Badges are looked for at each of these
+# sizes; the best one counts.
+#
+# Measured before trusting it, over 224 frames of the chapter-28 map. Nests
+# score 0.977 and up; the best a frame with no nest scores at any of these
+# sizes is 0.804 (a glowing badge). The boss scores 0.89-0.93; without it, at
+# most 0.643. On the zoomed-out player's frame, at 0.88: nest 0.988, boss 0.887
+# — a lossy screen recording, so a live capture should do better.
+MAP_SCALES = (1.0, 0.94, 0.88, 0.82)
 WORLD_MAP_THRESHOLD = 0.85
 # The boss badge scored 0.884 and 0.923 on the two recorded frames it appears in
 # and 1.000 on the live capture it was cut from, against 0.564 for the best frame
@@ -669,10 +683,10 @@ class ExplorationWorker(TaskWorker):
         target = self._glowing_nest()
         if target is not None:
             return self._enter_battle(target, "Glowing nest")
-        target = self._control.find(TPL_BOSS, BOSS_THRESHOLD)
+        target = self._control.find(TPL_BOSS, BOSS_THRESHOLD, scales=MAP_SCALES)
         if target is not None:
             return self._enter_battle(target, "Boss")
-        target = self._control.find(TPL_ENEMY, THRESHOLD)
+        target = self._control.find(TPL_ENEMY, THRESHOLD, scales=MAP_SCALES)
         if target is not None:
             return self._enter_battle(target, "Nest")
         self._sweep()
@@ -688,7 +702,8 @@ class ExplorationWorker(TaskWorker):
         reach. Lowered here to GLOW_FLOOR, which is safe only because nothing is
         fought on that score alone: it must also show the glow.
         """
-        nests = self._control.find_all(TPL_ENEMY, threshold=GLOW_FLOOR)
+        nests = self._control.find_all(TPL_ENEMY, threshold=GLOW_FLOOR,
+                                       scales=MAP_SCALES)
         if not nests:
             return None
         try:

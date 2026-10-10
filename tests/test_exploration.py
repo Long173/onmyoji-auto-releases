@@ -69,7 +69,8 @@ class StubControl:
     def describe(self):
         return "stub control"
 
-    def find(self, template_path, threshold=0.9, region=None, gray=True, delay=0.1):
+    def find(self, template_path, threshold=0.9, region=None, gray=True, delay=0.1,
+             scales=(1.0,)):
         self.looked.append(template_path)
         looks = self.looked.count(template_path)
         gone = self.gone_after.get(template_path)
