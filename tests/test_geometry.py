@@ -250,3 +250,20 @@ def test_an_unreadable_screen_size_does_not_break_the_warning(
         resize_with(window, monkeypatch)
 
     assert "1420x800" in caplog.text
+
+
+def test_a_game_running_as_administrator_is_explained(monkeypatch, no_sleep):
+    """Reported by a player: the start dialog read only
+    "(5, 'MoveWindow', 'Access is denied.')". The game ran elevated and the tool
+    did not, and Windows refuses a lower process every move — and every posted
+    click too, silently, so carrying on without the resize is no answer."""
+    import pywintypes
+
+    window = FakeWindow(frame=(16, 39), client=(1420, 800))
+
+    def denied(*_args):
+        raise pywintypes.error(5, "MoveWindow", "Access is denied.")
+
+    window.MoveWindow = denied
+    with pytest.raises(realm_raid.GameRunsAsAdministrator, match="Administrator"):
+        resize_with(window, monkeypatch)

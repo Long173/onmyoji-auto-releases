@@ -11,6 +11,7 @@ import logging
 import time
 from typing import Optional, Tuple
 
+import pywintypes
 import win32gui
 
 import cv2
@@ -1296,6 +1297,22 @@ def find_game_window(title: str) -> int:
     return hwnd
 
 
+# Windows' "Access is denied".
+ERROR_ACCESS_DENIED = 5
+
+
+class GameRunsAsAdministrator(RuntimeError):
+    """The game runs with more rights than this app, so Windows ignores it."""
+
+    MESSAGE = ("Game đang chạy bằng quyền Administrator nên Windows chặn tool "
+               "điều khiển nó. Hãy tắt tool rồi mở lại bằng quyền "
+               "Administrator (chuột phải vào Onmyoji Tool.exe → Run as "
+               "administrator), hoặc mở game không bằng quyền Administrator.")
+
+    def __init__(self) -> None:
+        super().__init__(self.MESSAGE)
+
+
 def resize_game_window(
     hwnd: int, client_size: Tuple[int, int] = geometry.REFERENCE_CLIENT_SIZE
 ) -> None:
@@ -1328,9 +1345,19 @@ def resize_game_window(
                 return
             frame_w = (right - left) - client_w
             frame_h = (bottom - top) - client_h
-            win32gui.MoveWindow(
-                hwnd, left, top, want_w + frame_w, want_h + frame_h, True
-            )
+            try:
+                win32gui.MoveWindow(
+                    hwnd, left, top, want_w + frame_w, want_h + frame_h, True
+                )
+            except pywintypes.error as exc:
+                # A player's start dialog read only "(5, 'MoveWindow', 'Access
+                # is denied.')": the game ran elevated and the tool did not.
+                # Windows refuses a lower process every move and every posted
+                # click as well — the clicks silently — so skipping the resize
+                # and carrying on would only fail later with no message at all.
+                if exc.winerror == ERROR_ACCESS_DENIED:
+                    raise GameRunsAsAdministrator() from exc
+                raise
         time.sleep(RESIZE_SETTLE_SECONDS)
 
     with dpi.window_space(hwnd):
