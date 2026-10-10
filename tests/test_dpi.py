@@ -178,7 +178,7 @@ def test_the_window_is_measured_in_the_games_space(monkeypatch, aware_thread):
 import ast
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parents[1] / "decompiled" / "source"
+SOURCE = Path(__file__).resolve().parents[1] / "src"
 
 # Win32 calls whose answer, or whose argument, is a coordinate.
 COORDINATE_CALLS = {

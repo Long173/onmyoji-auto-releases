@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 
 ROOT = Path(os.getcwd()).resolve()
-SOURCE = ROOT / "decompiled" / "source"
+SOURCE = ROOT / "src"
 WIKI = ROOT.parent / "onmyoji_wiki" / "assets"
 
 # ── what Windows says about the .exe ────────────────────────────────────────
@@ -153,9 +153,8 @@ a = Analysis(
     # Compile at -OO, which drops docstrings from the bundled bytecode.
     #
     # Not an attempt to stop anyone reading the code: a PyInstaller build is
-    # trivially unpacked, and this project itself lives in a folder called
-    # `decompiled/source`. What it does stop is handing over the *explanations*
-    # for free. Measured on the 3.8 build: 52 KB of design notes — every
+    # trivially unpacked, and the source is public anyway. What it does stop is
+    # handing over the *explanations* for free. Measured on the 3.8 build: 52 KB of design notes — every
     # threshold with the measurement behind it, every approach that was tried
     # and failed and why — sat in the shipped .exe, and that is worth more to
     # somebody repackaging this than the bytecode is.

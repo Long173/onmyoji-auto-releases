@@ -68,7 +68,7 @@ checkout `onmyoji_wiki`.
 
 ### Thông tin liên hệ
 
-Khai ở **một chỗ duy nhất** — `decompiled/source/contact.py`:
+Khai ở **một chỗ duy nhất** — `src/contact.py`:
 
 ```python
 CONTACTS = (
@@ -106,7 +106,7 @@ làm một, nhưng **release vẫn ở nguyên chỗ cũ**: mọi bản đã cà
 bản mới ở đúng địa chỉ này, và địa chỉ đó đã nung vào exe lúc build nên không
 sửa lại được. Đổi tên hay dời repo là những bản cài đó mất tính năng cập nhật.
 
-Cấu hình nằm ở `decompiled/source/updater.py`:
+Cấu hình nằm ở `src/updater.py`:
 
 ```python
 GITHUB_OWNER = "Long173"                # để trống = tắt hẳn tính năng cập nhật
@@ -129,7 +129,7 @@ biến môi trường. Chỉ cần đúng quyền đó — đừng dùng token c
 **Mỗi lần ra bản mới:**
 
 ```bash
-# 1. tăng APP_VERSION trong decompiled/source/theme.py
+# 1. tăng APP_VERSION trong src/theme.py
 # 2. build
 pyinstaller onmyoji_auto.spec --noconfirm
 # 3. phát hành

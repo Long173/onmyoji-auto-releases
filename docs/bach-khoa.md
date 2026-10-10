@@ -19,7 +19,7 @@ không có nút Bắt đầu/Dừng — băng tiêu đề tự ẩn hai nút đ�
 Đang tìm kiếm thì **không mục nào sáng** ở cột trái: kết quả trải khắp ba mục
 nên tô sáng một mục là nói sai.
 
-`python decompiled/source/app.py --wiki` mở thẳng vào trang wiki.
+`python src/app.py --wiki` mở thẳng vào trang wiki.
 
 | Tính năng      | Chi tiết                                                        |
 | -------------- | ---------------------------------------------------------------- |

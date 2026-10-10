@@ -23,9 +23,7 @@ onmyoji-auto/
 ├── tools/crop_region.py     cắt/phóng to, và cắt ảnh mẫu
 ├── tools/score_template.py  chấm điểm ảnh mẫu, in cách biệt khớp/trượt
 ├── tests/                   pytest, không cần game
-└── decompiled/
-    ├── source/              code đang chạy
-    └── _legacy/             bản decompile gốc (lưu trữ, không dùng)
+└── src/                     code đang chạy
 ```
 
 | Module | Trách nhiệm |

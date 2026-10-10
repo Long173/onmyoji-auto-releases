@@ -103,7 +103,7 @@ Cần Python 3.10+ trên Windows.
 
 ```bash
 pip install -r requirements.txt
-python decompiled/source/app.py          # thêm -v để log từng cú click
+python src/app.py          # thêm -v để log từng cú click
 ```
 
 Trong checkout còn hai lối chạy nhanh:
@@ -140,5 +140,5 @@ Chi tiết nằm trong `docs/`, mỗi file một chủ đề:
 
 Muốn thêm một tác vụ auto mới thì bắt đầu ở
 [Kiến trúc → Thêm một tác vụ mới](docs/kien-truc.md#thêm-một-tác-vụ-mới):
-khai một `TaskSpec` trong `decompiled/source/tasks.py` là xong, không đụng file
+khai một `TaskSpec` trong `src/tasks.py` là xong, không đụng file
 giao diện nào.

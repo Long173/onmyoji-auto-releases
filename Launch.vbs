@@ -9,7 +9,7 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 Set WshShell = CreateObject("WScript.Shell")
 
 appDir = fso.GetParentFolderName(WScript.ScriptFullName)
-entry = fso.BuildPath(appDir, "decompiled\source\app.py")
+entry = fso.BuildPath(appDir, "src\app.py")
 
 If Not fso.FileExists(entry) Then
     MsgBox "Khong tim thay: " & entry, vbCritical, "Onmyoji Tool"

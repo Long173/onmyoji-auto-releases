@@ -21,8 +21,8 @@ from typing import Iterable
 
 FROZEN = bool(getattr(sys, "frozen", False))
 
-# Source lives at <root>/decompiled/source.
-_CHECKOUT_ROOT = Path(__file__).resolve().parents[2]
+# Source lives at <root>/src.
+_CHECKOUT_ROOT = Path(__file__).resolve().parents[1]
 
 APP_ROOT: Path = (
     Path(sys.executable).resolve().parent if FROZEN else _CHECKOUT_ROOT

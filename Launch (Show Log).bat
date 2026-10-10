@@ -6,7 +6,7 @@ pushd "%~dp0"
 set PYTHONIOENCODING=utf-8
 echo === Onmyoji Tool (verbose) - log: logs\onmyoji_auto.log ===
 echo.
-python -u "decompiled\source\app.py" -v
+python -u "src\app.py" -v
 echo.
 echo === Da ket thuc, nhan phim bat ky de dong ===
 pause >nul

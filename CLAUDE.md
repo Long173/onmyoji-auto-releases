@@ -10,8 +10,7 @@ offline Vietnamese wiki (Thức thần / Ngự hồn / Hiệu ứng). Bot worker
 several game windows at once in the background — the real cursor never moves
 and the game window never needs focus.
 
-Source lives in `decompiled/source/`, not at the repo root. `decompiled/_legacy/`
-is the original decompiled build kept for reference — never edit or import it.
+Source lives in `src/`, not at the repo root.
 
 `docs/` (Vietnamese) is the real design documentation, and it is unusually
 good — read it before changing anything non-trivial. `docs/ghi-chu-ky-thuat.md`
@@ -26,9 +25,9 @@ comments and docstrings are English.
 ```bash
 pip install -r requirements.txt
 
-python decompiled/source/app.py            # run (add -v for click/match logging)
-python decompiled/source/app.py --wiki     # open onto the wiki — inert while features.WIKI is off
-python decompiled/source/app.py --tray     # start hidden in the tray
+python src/app.py            # run (add -v for click/match logging)
+python src/app.py --wiki     # open onto the wiki — inert while features.WIKI is off
+python src/app.py --tray     # start hidden in the tray
 
 python -m pytest tests -q                  # full suite; needs no game and no network
 python -m pytest tests/test_realm_raid.py -q
@@ -42,7 +41,7 @@ python tools/publish_release.py 3.16 --notes "..." [--upload]
 On Windows, `Launch.vbs` runs without a console; `Launch (Show Log).bat` runs
 with `-v` and a visible log. Logs go to `logs/onmyoji_auto.log`.
 
-Tests import from `decompiled/source` via `tests/conftest.py`, which puts it on
+Tests import from `src` via `tests/conftest.py`, which puts it on
 `sys.path` and forces `QT_QPA_PLATFORM=offscreen`. The app itself only runs on
 Windows (`pywin32`, `PrintWindow`, `PostMessage`), so on macOS/Linux expect
 import failures for anything touching `game_control`.
@@ -51,7 +50,7 @@ import failures for anything touching `game_control`.
 
 ### The task registry is the extension point
 
-`decompiled/source/tasks.py` declares every automation as a frozen `TaskSpec`
+`src/tasks.py` declares every automation as a frozen `TaskSpec`
 (id, name, summary, `fields`, `build`). Everything downstream — sidebar rows,
 the per-task page, generated config controls, settings persistence, start/stop
 plumbing — is derived from this registry. **Adding an automation means adding a
@@ -137,7 +136,7 @@ back on failure, leaving `logs/ cache/ .env wiki/` untouched.
 
 ### Wiki
 
-**Switched off since 3.19** (`decompiled/source/features.py`: `WIKI = False`).
+**Switched off since 3.19** (`src/features.py`: `WIKI = False`).
 Development stopped; the code and its tests are kept so turning it back on is
 that one line. While off, the page is never built, so nothing syncs. Tests of
 wiki *behaviour* take the `wiki_on` fixture (conftest) ahead of `dashboard`.
@@ -186,6 +185,6 @@ own thread and crash the run rather than fail it.
   (score it before trusting it), `collect_figures.py`/`cluster_figures.py`/
   `promote_group.py`/`pack_library.py` (build the Demon Parade rarity library,
   which identifies shikigami by hue/saturation histogram, not shape).
-- `decompiled/source/contact.py` is the single place contact details are
+- `src/contact.py` is the single place contact details are
   declared; they surface in Settings and in every GitHub release body, and both
   places render nothing when left empty.

@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "decompiled" / "source"
+SOURCE = ROOT / "src"
 if str(SOURCE) not in sys.path:
     sys.path.insert(0, str(SOURCE))
 
@@ -539,7 +539,7 @@ def main(argv=None) -> int:
     if target is None:
         print("Chua biet phat hanh len repo nao.\n"
               "  updater.DEFAULT_MANIFEST_URL = %r\n"
-              "Dien ten tai khoan vao decompiled/source/updater.py:\n"
+              "Dien ten tai khoan vao src/updater.py:\n"
               "  GITHUB_OWNER = \"ten-tai-khoan\"\n"
               "  GITHUB_REPO  = %r\n"
               "roi build lai truoc khi phat hanh."
