@@ -5,6 +5,10 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Chạy tay từ tab Actions: build y như bản phát hành nhưng KHÔNG phát hành,
+  # chỉ để lại file build làm artifact — để đưa lên VirusTotal kiểm tra trước
+  # khi đánh tag.
+  workflow_dispatch:
 
 # Workflow này tạo release, nên cần quyền ghi. GITHUB_TOKEN do GitHub tự cấp
 # cho từng lần chạy và hết hạn ngay sau đó — không cần PAT cá nhân nào.
@@ -46,7 +50,43 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pyinstaller
+          pip install pytest
+
+      # PyInstaller cài từ mã nguồn, tự biên dịch bootloader — phần .exe khởi
+      # động — thay cho bản dựng sẵn trong wheel. Bản dựng sẵn giống hệt từng
+      # byte ở mọi chương trình đóng gói bằng PyInstaller, kể cả mã độc (như
+      # "Blank Grabber"), nên vài phần mềm diệt virus nhận nhầm theo nó: bản
+      # 3.21 bị 3/71 gắn "trojan.blank". Bootloader tự build là file của riêng
+      # mình. Máy Windows của GitHub có sẵn MSVC để biên dịch.
+      # Ghim phiên bản: bản build phải lặp lại được, và test.yml chạy cùng bản.
+      - name: Cài PyInstaller, tự build bootloader
+        working-directory: onmyoji-auto
+        env:
+          PYINSTALLER_COMPILE_BOOTLOADER: "1"
+        run: |
+          pip install --verbose --no-binary=pyinstaller pyinstaller==6.20.0
+
+      # Chặn nếu bước trên lặng lẽ dùng lại bootloader dựng sẵn (ví dụ pip lấy
+      # wheel từ cache): so với file trong wheel chính thức, phải khác.
+      - name: Kiểm tra bootloader đã được build lại
+        shell: bash
+        run: |
+          set -euo pipefail
+          pip download pyinstaller==6.20.0 --only-binary=:all: --no-deps -d "$RUNNER_TEMP/wheel"
+          python - "$RUNNER_TEMP/wheel" <<'PY'
+          import glob, hashlib, pathlib, sys, zipfile
+          import PyInstaller
+          name = "PyInstaller/bootloader/Windows-64bit-intel/runw.exe"
+          wheel = glob.glob(sys.argv[1] + "/*.whl")[0]
+          stock = hashlib.sha256(zipfile.ZipFile(wheel).read(name)).hexdigest()
+          ours = hashlib.sha256((pathlib.Path(PyInstaller.__file__).parent
+                                 / "bootloader/Windows-64bit-intel/runw.exe")
+                                .read_bytes()).hexdigest()
+          print("stock runw.exe", stock)
+          print("built runw.exe", ours)
+          if ours == stock:
+              sys.exit("Bootloader is still the stock one - not rebuilt")
+          PY
 
       # Chặn cuối. Không phát hành bản có test đỏ — mỗi bản phát hành đều được
       # hàng trăm máy tự tải về, và rút lại thì đã muộn.
@@ -63,6 +103,7 @@ jobs:
       # Tag v3.16 -> 3.16. publish_release.py tự dừng nếu số này khác
       # theme.APP_VERSION, nên một tag đánh nhầm không ship được gì.
       - name: Đọc phiên bản từ tag
+        if: startsWith(github.ref, 'refs/tags/')
         id: version
         shell: bash
         run: echo "number=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
@@ -74,7 +115,17 @@ jobs:
       # Ghi chú lấy từ mục tương ứng trong CHANGELOG.md, không truyền qua dòng
       # lệnh: tiếng Việt đi qua argv trên Windows từng bị đổi sang codepage ANSI
       # và ra "Cá»­a sá»•". Không có mục cho phiên bản này thì script dừng.
+      # Chạy tay (không có tag): dừng ở đây, chỉ giữ lại bản build để kiểm tra.
+      - name: Lưu bản build (chạy thử)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: onmyoji-tool-dry-run
+          path: onmyoji-auto/dist/Onmyoji Tool/Onmyoji Tool.exe
+          retention-days: 7
+
       - name: Phát hành
+        if: startsWith(github.ref, 'refs/tags/')
         working-directory: onmyoji-auto
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -91,6 +142,7 @@ jobs:
       # Đặt sau bước phát hành: attestation gắn với nội dung file (digest),
       # không phụ thuộc file đã được tải lên hay chưa.
       - name: Ký attestation cho bản build
+        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/attest@v4
         with:
           subject-path: onmyoji-auto/dist/release/*.zip
