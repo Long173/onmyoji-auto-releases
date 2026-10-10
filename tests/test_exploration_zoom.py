@@ -112,3 +112,57 @@ def test_the_loop_looks_at_every_size(monkeypatch):
     looked = dict(asked)
     assert looked[exploration.TPL_ENEMY] == exploration.MAP_SCALES
     assert looked[exploration.TPL_BOSS] == exploration.MAP_SCALES
+    assert looked[exploration.TPL_MAP_REWARD] == exploration.MAP_SCALES
+
+
+# ── the reward the boss leaves behind ───────────────────────────────────────
+#
+# Reported from the same zoomed-out game on 3.22: the boss fell, two chests were
+# left on the map, and the loop swept past them for two minutes ("4 sweeps in a
+# row moved nothing…") until the player picked one up by hand. Nests and the
+# boss had been taught every size in 3.22; the chest had not. Cut from the
+# player's screenshot, which is the client at about 98% of its own pixels —
+# the chest there is 88-92% of the template.
+
+REWARD_FIXTURE = Path(__file__).parent / "fixtures" / "exploration" / "reward_zoomed.png"
+REWARD_ORIGIN = (380, 326)
+CHEST = (444, 429)
+
+
+@pytest.fixture(scope="module")
+def reward_crop():
+    image = cv2.imdecode(np.fromfile(str(REWARD_FIXTURE), np.uint8), cv2.IMREAD_COLOR)
+    assert image is not None
+    return image
+
+
+def control_showing_at(crop: np.ndarray, origin):
+    made = bare_control(client=(1122, 633))
+    frame = np.full((633, 1122, 3), 200, np.uint8)
+    h, w = crop.shape[:2]
+    frame[origin[1]:origin[1] + h, origin[0]:origin[0] + w] = crop
+    made.full_shot = lambda gray=False: (
+        cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if gray else frame)
+    return made
+
+
+def test_a_zoomed_out_chest_is_found(reward_crop):
+    control = control_showing_at(reward_crop, REWARD_ORIGIN)
+    point = control.find(exploration.TPL_MAP_REWARD, exploration.REWARD_THRESHOLD,
+                         delay=0, scales=exploration.MAP_SCALES)
+    assert near(point, CHEST, within=40), point
+
+
+def test_at_full_size_the_chest_barely_scores(reward_crop):
+    """Why it went unseen: at one size it sits on the cut-off, not above it."""
+    control = control_showing_at(reward_crop, REWARD_ORIGIN)
+    full, _ = control.match(exploration.TPL_MAP_REWARD, delay=0)
+    sized, _ = control.match(exploration.TPL_MAP_REWARD, delay=0,
+                             scales=exploration.MAP_SCALES)
+    assert sized > 0.95 and full < 0.9 and sized - full > 0.08
+
+
+def test_no_chest_is_seen_on_a_map_without_one(crop):
+    control = control_showing(crop)
+    assert control.find(exploration.TPL_MAP_REWARD, exploration.REWARD_THRESHOLD,
+                        delay=0, scales=exploration.MAP_SCALES) is None

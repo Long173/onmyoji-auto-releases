@@ -203,7 +203,8 @@ GLOW_MIN_VALUE = 210
 
 # The reward node scored 0.969 on the recorded frame it appears in and 1.000 on
 # the live capture it was cut from, against 0.692 for the best map frame with no
-# reward on it.
+# reward on it — 0.781 once every size in MAP_SCALES is tried. On a player's
+# zoomed-out map it scored 0.98 at 88-92% and only about 0.85 at full size.
 REWARD_THRESHOLD = 0.85
 # The Realm Raid button on the world map's bottom strip. It doubles as the
 # second way of recognising the world map itself, and it is the better of the
@@ -669,7 +670,11 @@ class ExplorationWorker(TaskWorker):
         # A reward node before any fight: it is free, and it is what the lap was
         # for. Beating the boss can leave one behind on the map — the game does
         # not always hand the chapter's reward over by itself.
-        target = self._control.find(TPL_MAP_REWARD, REWARD_THRESHOLD)
+        # Every size, like the badges: the chest shrinks with a zoomed-out map
+        # too, and at full size it scored right on the cut-off there — a player
+        # on 3.22 watched the loop sweep past two of them for two minutes.
+        target = self._control.find(TPL_MAP_REWARD, REWARD_THRESHOLD,
+                                    scales=MAP_SCALES)
         if target is not None:
             self._rewards += 1
             logger.info("Reward %d at %s — collecting", self._rewards, target)
