@@ -29,10 +29,12 @@ có virus — đây là lý do và những gì đã làm:
 - **Đã sửa:** từ bản này, phần khởi động được tự dựng riêng cho tool, không còn
   dùng bản làm sẵn. Bản 3.22 chỉ còn **1/71** phần mềm báo. Windows Defender,
   Kaspersky, BitDefender, Avast… đều báo sạch.
-- **Vì sao còn 1 (SecureAge):** phần mềm này báo "Malicious" (độc hại) cho hầu
-  hết file .exe chưa có **chữ ký số** — một loại giấy chứng nhận người làm phần
-  mềm phải mua hằng năm. Nó không chỉ ra mã độc cụ thể nào. Muốn hết hẳn thì
-  phải mua chữ ký số; tool miễn phí nên hiện chưa có.
+- **Vì sao còn 1:** vẫn còn một phần mềm báo, và lần nào cũng chỉ là nhãn
+  chung "Malicious" (độc hại) — ở bản thử là SecureAge, ở bản phát hành là
+  APEX. Vài phần mềm như vậy báo hầu hết file .exe chưa có **chữ ký số** — một
+  loại giấy chứng nhận người làm phần mềm phải mua hằng năm — và không chỉ ra
+  mã độc cụ thể nào. Muốn hết hẳn thì phải mua chữ ký số; tool miễn phí nên
+  hiện chưa có.
 - **Tự kiểm tra được:** mã nguồn công khai trên GitHub, và file .exe do GitHub
   tự dựng từ chính mã nguồn đó chứ không phải dựng trên máy ai. Kết quả quét
   VirusTotal của từng bản được ghi ngay trong trang phát hành, bên dưới.
