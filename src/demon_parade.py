@@ -506,11 +506,20 @@ class DemonParadeWorker(TaskWorker):
         stayed at 5. Checking afterwards is what turns that from invisible into
         a warning in the log.
         """
+        scale_x = self._geometry.scale[0]
         target_x = geometry.PARADE_SLIDER_X[self._beans]
         target = self._geometry.point((target_x, geometry.PARADE_SLIDER_Y))
-        tolerance = max(
-            1, round(geometry.PARADE_SLIDER_TOLERANCE * self._geometry.scale[0])
-        )
+        tolerance = max(1, round(geometry.PARADE_SLIDER_TOLERANCE * scale_x))
+        radius = round(geometry.PARADE_KNOB_RADIUS * scale_x)
+        # Ten is the top of the slider, and the top is not in the same place
+        # everywhere: the PC client stops the knob at 520, BlueStacks at about
+        # 544. So ten is "dragged as far right as it goes" — past the end, which
+        # the slider clamps — and counted as reached once the knob is at or
+        # beyond the PC's top. Five sits mid-track and needs a real position.
+        most = max(geometry.PARADE_SLIDER_X.values())
+        to_the_top = target_x == most
+        drop_x = (self._geometry.point((geometry.PARADE_SLIDER_SCAN[1], 0))[0]
+                  if to_the_top else target[0] - radius)
 
         for attempt in range(SLIDER_ATTEMPTS):
             self._control.invalidate_frame()
@@ -522,7 +531,8 @@ class DemonParadeWorker(TaskWorker):
             if knob is None:
                 logger.info("Beans slider not visible; leaving it alone")
                 return
-            if abs(knob - target[0]) <= tolerance:
+            if (knob >= target[0] - tolerance if to_the_top
+                    else abs(knob - target[0]) <= tolerance):
                 # Says which of the two it was, because they look identical in
                 # a log and mean very different things: one is the setting
                 # already being right, the other is a drag having worked.
@@ -532,7 +542,9 @@ class DemonParadeWorker(TaskWorker):
                     "already set" if attempt == 0 else "dragged there",
                 )
                 return
-            self._control.drag((knob, target[1]), target,
+            # Grabbed by the middle and dropped so the rim — what is read back —
+            # lands on the target.
+            self._control.drag((knob - radius, target[1]), (drop_x, target[1]),
                                steps=SLIDER_DRAG_STEPS,
                                hold_seconds=SLIDER_HOLD_SECONDS)
             self._sleep(SLIDER_SETTLE_SECONDS)

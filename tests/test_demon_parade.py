@@ -98,11 +98,16 @@ class StubControl:
 
     def drag(self, start, end, **kwargs):
         self.drags.append((tuple(start), tuple(end)))
-        # Only a grab that lands on the knob moves it. Measured on the real
-        # slider: a click on the track and a drag starting short of the knob
-        # both left it exactly where it was.
-        if abs(start[0] - self.knob_x) <= self.GRAB_TOLERANCE:
-            self.knob_x = int(end[0])
+        # Only a grab on the knob's middle moves it. ``knob_x`` is its rim —
+        # the last gold pixel, which is what the worker reads — and the middle
+        # is a radius to the left. Measured on the real slider: a click on the
+        # track and a drag starting short of the knob both left it where it
+        # was, and on an emulator a touch on the rim did too. The knob then
+        # follows the pointer, and stops at the top of the track.
+        middle = self.knob_x - geometry.PARADE_KNOB_RADIUS
+        if abs(start[0] - middle) <= self.GRAB_TOLERANCE:
+            self.knob_x = min(int(end[0]) + geometry.PARADE_KNOB_RADIUS,
+                              self.TOP)
 
     def full_shot(self, gray=False):
         """A black screen with the beans slider painted on it.
@@ -117,6 +122,7 @@ class StubControl:
         return frame
 
     GRAB_TOLERANCE = 6
+    TOP = 520           # where the PC client's knob stops
 
     def describe(self):
         return "stub control"
@@ -252,9 +258,26 @@ def test_the_drag_starts_on_the_knob_where_it_actually_is(worker):
     run(w, 0.375)
 
     start, _end = w._control.drags[0]
-    assert abs(start[0] - 360) <= StubControl.GRAB_TOLERANCE, (
-        "grabbed at %d, but the knob was at 360" % start[0]
+    middle = 360 - geometry.PARADE_KNOB_RADIUS
+    assert abs(start[0] - middle) <= StubControl.GRAB_TOLERANCE, (
+        "grabbed at %d, but the knob's middle was at %d" % (start[0], middle)
     )
+
+
+def test_ten_is_reached_where_the_track_ends_further_right(worker):
+    """BlueStacks stops the knob at about 544 where the PC stops at 520. Asked
+    for 520 exactly, a knob at the top read as 24 px off and every round
+    warned that ten could not be set."""
+    class LongerTrack(StubControl):
+        TOP = 544
+
+    w = worker([ROUND, RESULT], beans=10)
+    w._control.__class__ = LongerTrack
+
+    run(w, 0.375)
+
+    assert w._control.knob_x == 544
+    assert len(w._control.drags) == 1
 
 
 def test_a_slider_already_on_the_right_value_is_left_alone(worker):

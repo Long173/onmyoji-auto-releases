@@ -163,6 +163,12 @@ PARADE_SLIDER_X = {5: 360, 10: 520}
 PARADE_SLIDER_SCAN = (200, 545)
 # Knob is within this many pixels of the target for the setting to count.
 PARADE_SLIDER_TOLERANCE = 12
+# The knob is a dark disc with a gold rim, so the last gold pixel is its right
+# edge, not its middle; the middle is this far to the left. A mouse grab on the
+# rim takes, and the PC client never minded. An emulator's touch on the rim
+# misses: on BlueStacks the slider stayed at 5 for every round until the swipe
+# started from the middle. Measured there: 48 px across at 1600x900, 34 here.
+PARADE_KNOB_RADIUS = 17
 
 # Where anything in the parade can be, walking or flying. Used to ignore
 # movement elsewhere on screen — the timer counting down, the bean counter.
