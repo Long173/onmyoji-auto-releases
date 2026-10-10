@@ -4,6 +4,22 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.23
+
+### Mới
+
+- **Đấu PvP**: tự vào trận Đấu, bật auto chọn thức thần, chuyển trận sang Auto,
+  chạm qua kết quả rồi đánh tiếp. Chọn mốc dừng 2400, 2700 hoặc Danh sĩ — tool
+  tự dừng khi đạt mốc, khi lên Danh sĩ, hoặc khi hết giờ PvP. Có video hướng
+  dẫn ngay trong tool.
+
+### Sửa
+
+- Khi một tác vụ tự dừng, thẻ cửa sổ ghi rõ lý do (trước đây tác vụ nào cũng
+  hiện "Hết vé").
+
+---
+
 ## 3.22
 
 ### Mới
