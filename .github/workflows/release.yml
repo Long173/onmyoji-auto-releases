@@ -146,3 +146,19 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: onmyoji-auto/dist/release/*.zip
+
+      # Quét file .exe trên VirusTotal rồi thêm kết quả vào ghi chú phát hành,
+      # kèm giải thích cho từng phần mềm báo. Cần secret VT_API_KEY (key của
+      # một tài khoản VirusTotal miễn phí); thiếu key thì bước này bỏ qua. Lỗi ở
+      # đây không làm hỏng bản phát hành — bản đã lên rồi.
+      - name: Quét VirusTotal và ghi vào ghi chú phát hành
+        if: startsWith(github.ref, 'refs/tags/')
+        continue-on-error: true
+        working-directory: onmyoji-auto
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: >
+          python tools/virustotal_report.py "dist/Onmyoji Tool/Onmyoji Tool.exe"
+          ${{ github.ref_name }} ${{ github.repository }}
