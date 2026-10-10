@@ -64,6 +64,10 @@ logger = logging.getLogger(__name__)
 TPL_DIGIT_3 = template("Ticket", "digit3.png")
 TPL_DIGIT_0 = template("Ticket", "digit0.png")
 TPL_SLASH = template("Ticket", "slash.png")
+# The same slash as an emulator draws it: 4 px wide against the PC client's 5,
+# which scored 0.87 against the PC one — just under the threshold. A slash is
+# either; see tests/test_raid_tickets_live.py.
+TPL_SLASH_EMULATOR = template("Ticket", "slash_emulator.png")
 
 # A column counts as lit above this. The glyphs are near-white on a near-black
 # plaque, so anything from about 60 to 200 segments identically; 110 is the
@@ -123,7 +127,7 @@ class TicketReader:
         self._control = control
         self._digit3 = self._load(TPL_DIGIT_3)
         self._digit0 = self._load(TPL_DIGIT_0)
-        self._slash = self._load(TPL_SLASH)
+        self._slashes = (self._load(TPL_SLASH), self._load(TPL_SLASH_EMULATOR))
 
     @staticmethod
     def _load(path: str) -> np.ndarray:
@@ -169,7 +173,8 @@ class TicketReader:
         if not (
             looks_like(cut(glyphs[-1]), self._digit0) > GLYPH_THRESHOLD
             and looks_like(cut(glyphs[-2]), self._digit3) > GLYPH_THRESHOLD
-            and looks_like(cut(glyphs[-3]), self._slash) > GLYPH_THRESHOLD
+            and max(looks_like(cut(glyphs[-3]), slash)
+                    for slash in self._slashes) > GLYPH_THRESHOLD
         ):
             logger.debug("Ticket counter: the last three glyphs are not '/30'")
             return UNREADABLE

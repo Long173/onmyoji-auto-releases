@@ -114,6 +114,32 @@ Nên F1/F2 quay về làm `QShortcut` của Qt (chỉ ăn khi cửa sổ app đa
 phím chụp nhanh giữ nguyên tầm với toàn máy. Đổi lại: không bấm F1/F2 được khi
 đang ở trong game nữa.
 
+**Giả lập đi qua ADB, không qua cửa sổ.** Giả lập vẽ game bằng OpenGL vào một
+cửa sổ con bọc trong thanh công cụ của nó; `PrintWindow` ra đen hoặc ra sai, và
+nhiều giả lập bỏ qua chuột gửi bằng `PostMessage`. ADB thì giả lập nào cũng có,
+nên `adb_control.AdbControl` thay đúng ba việc — chụp (`screencap`, ảnh thô, 0,19
+giây cho 1600×900 trên BlueStacks; PNG mất 0,51), bấm (`input tap`), kéo
+(`input swipe`) — còn so ảnh, cache khung hình và quy đổi toạ độ giữ nguyên của
+`GameControl`. Độ phân giải của thiết bị đóng vai "client", nên ảnh mẫu 1122×633
+dùng lại được: đo trên BlueStacks, nút Realm Raid 0,942, Exploration 0,982, thẻ
+đối thủ 0,979, Refresh 0,946.
+
+Ba chỗ phải để ý:
+
+- **Mọi thứ trong app đánh dấu game bằng HWND**; giả lập không có cái nào có
+  nghĩa. Nó được cấp một số âm cố định theo serial ADB
+  (`window_scanner.emulator_key`), và các hàm hỏi Windows về HWND tự trả lời khi
+  gặp số âm. Đừng đưa số đó vào `win32gui`.
+- **Dò cổng phải song song.** Trên Windows, cổng localhost đóng không từ chối
+  ngay mà chờ hết timeout; dò lần lượt hơn 20 cổng mất 3,7 giây, chạy song song
+  còn 0,15 giây. Lần quét chạy trên luồng giao diện.
+- **Ảnh thu nhỏ không chụp trên luồng giao diện.** Bảng điều khiển chụp mỗi 2
+  giây; 0,19 giây mỗi lần là giật. `AdbControl.preview` trả ảnh cũ ngay và chụp
+  ảnh mới ở luồng riêng.
+
+Chữ số trên giả lập lệch một điểm ảnh: dấu "/" ở ô vé rộng 4 px thay vì 5 và chỉ
+được 0,87 với mẫu PC (ngưỡng 0,9), nên có thêm `Ticket/slash_emulator.png`.
+
 ## Giới hạn
 
 - Năm tác vụ đang chạy được: Phá Kết Giới, Ném đậu, Thám hiểm chương, Phụ bản

@@ -361,6 +361,11 @@ class GameControl:
         self._last_frame = colour
         return colour
 
+    def preview(self) -> Optional[np.ndarray]:
+        """A frame for a thumbnail. A window is quick to photograph, so this is
+        simply a capture; an emulator's control answers from its last frame."""
+        return self.full_shot()
+
     def part_shot(self, region: Region, gray: bool = False) -> np.ndarray:
         """Capture a sub-rectangle of the client area, as ``((x1,y1),(x2,y2))``."""
         (x1, y1), (x2, y2) = region

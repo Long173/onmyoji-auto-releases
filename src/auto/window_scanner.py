@@ -11,7 +11,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import win32con
 import win32gui
@@ -64,10 +64,20 @@ class GameWindow:
     # the outer rect it will open at. Carried so the card can say so instead of
     # showing that number as though it had been measured.
     minimised: bool = False
+    # Set for an emulator, which is reached over ADB rather than as a window.
+    # Its ``hwnd`` is then a stand-in, negative so it can never be a real one;
+    # see :func:`emulator_key`.
+    serial: str = ""
+
+    @property
+    def is_emulator(self) -> bool:
+        return bool(self.serial)
 
     @property
     def handle_text(self) -> str:
         """Just the handle, for places too narrow for the full descriptor."""
+        if self.serial:
+            return "ADB %s" % self.serial
         return "HWND 0x%08X" % self.hwnd
 
     @property
@@ -79,6 +89,83 @@ class GameWindow:
             self.client_height,
         )
         return caption + " · thu nhỏ" if self.minimised else caption
+
+
+# -- emulators ---------------------------------------------------------------
+#
+# Everything in the app keys a game by its window handle: sessions, cards,
+# recorders, the start and stop plumbing. An emulator has no handle of its own
+# that means anything - its window is a host with the game drawn somewhere
+# inside - so it is given a stand-in: a negative number, which no real handle
+# is, fixed per ADB serial for as long as the app runs. The functions below
+# that would ask Windows about a handle answer for an emulator themselves.
+
+_emulator_keys: Dict[str, int] = {}
+_emulator_serials: Dict[int, str] = {}
+# Serials the last scan found, so "is it still there" needs no adb call: the
+# dashboard asks every second.
+_emulators_seen: set = set()
+# Serials whose control has stopped getting frames for long enough to call the
+# emulator closed; see adb_control.LOST_AFTER_SECONDS. Without it a card on an
+# emulator closed mid-run said "đang chạy" for good: nothing rescans on its
+# own, and the worker just kept retrying its capture.
+_emulators_lost: set = set()
+
+
+def mark_emulator_lost(serial: str, lost: bool) -> None:
+    """Called by the emulator's control as frames stop or start arriving."""
+    if lost:
+        _emulators_lost.add(serial)
+    else:
+        _emulators_lost.discard(serial)
+
+
+def emulator_key(serial: str) -> int:
+    """The stand-in handle for an emulator, the same every time it is asked."""
+    key = _emulator_keys.get(serial)
+    if key is None:
+        key = -(len(_emulator_keys) + 1)
+        _emulator_keys[serial] = key
+        _emulator_serials[key] = serial
+    return key
+
+
+def emulator_serial(hwnd: int) -> Optional[str]:
+    """The ADB serial behind a stand-in handle, or None for a real window."""
+    return _emulator_serials.get(hwnd) if hwnd < 0 else None
+
+
+def scan_emulators() -> List[GameWindow]:
+    """An entry for every emulator with the game installed. Empty, quietly,
+    when no emulator has brought an adb along."""
+    import adb
+
+    tool = adb.shared()
+    if tool is None:
+        _emulators_seen.clear()
+        return []
+    try:
+        devices = tool.discover()
+    except adb.AdbError:
+        logger.warning("Looking for emulators failed", exc_info=True)
+        return []
+    _emulators_seen.clear()
+    found = []
+    for device in devices:
+        _emulators_seen.add(device.serial)
+        _emulators_lost.discard(device.serial)
+        # "BlueStacks · 5555": short enough to survive a narrow card, which
+        # "陰陽師Onmyoji · giả lập …" was not — it cut to the same "陰陽師…" as
+        # the PC window beside it. Also the key a window's task is remembered
+        # by, and an emulator keeps its port from one launch to the next.
+        label = device.port or device.serial
+        found.append(GameWindow(
+            emulator_key(device.serial), "%s · %s" % (tool.brand, label),
+            device.width, device.height, serial=device.serial,
+        ))
+    if found:
+        logger.info("Emulator scan matched %d device(s)", len(found))
+    return found
 
 
 def is_excluded_class(class_name: str) -> bool:
@@ -151,7 +238,7 @@ def scan(patterns: Sequence[str] = DEFAULT_PATTERNS) -> List[GameWindow]:
     win32gui.EnumWindows(visit, None)
     found.sort(key=lambda w: (w.title, w.hwnd))
     logger.info("Window scan matched %d window(s)", len(found))
-    return found
+    return found + scan_emulators()
 
 
 def is_gone(hwnd: int) -> bool:
@@ -163,6 +250,8 @@ def is_gone(hwnd: int) -> bool:
     destroyed handle to the same window, so there is nothing to wait for and
     the session can be closed out rather than left failing.
     """
+    if hwnd < 0:
+        return emulator_serial(hwnd) in _emulators_lost
     try:
         return not bool(win32gui.IsWindow(hwnd))
     except Exception:      # noqa: BLE001 - treat an unanswerable handle as live
@@ -177,6 +266,8 @@ def is_minimised(hwnd: int) -> bool:
     fraction of that. Measured on this machine: 1138x672 window / 1122x633
     client while open, 160x28 / 0x0 once minimised.
     """
+    if hwnd < 0:
+        return False       # an emulator is reached over ADB, never minimised
     try:
         return bool(win32gui.IsIconic(hwnd))
     except Exception:      # noqa: BLE001 - an unanswerable handle is not iconic
@@ -221,6 +312,9 @@ def open_if_minimised(hwnd: int, timeout: float = OPEN_TIMEOUT_SECONDS) -> bool:
 
 def is_alive(hwnd: int) -> bool:
     """True while the handle still refers to a visible window."""
+    if hwnd < 0:
+        serial = emulator_serial(hwnd)
+        return serial in _emulators_seen and serial not in _emulators_lost
     try:
         return bool(win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd))
     except Exception:

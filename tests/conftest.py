@@ -20,6 +20,20 @@ from PyQt5 import QtCore  # noqa: E402 - after the platform is chosen
 
 
 @pytest.fixture(autouse=True)
+def no_real_emulators(monkeypatch):
+    """Keep every test away from whatever emulator this machine has open.
+
+    A window scan also asks ADB for emulators. On a machine with BlueStacks
+    running, the scanner tests found it and counted it as a game window — and a
+    test that went further could have tapped a real game. Tests of emulator
+    support build their own fake adb (see test_emulator.py).
+    """
+    from auto import window_scanner
+
+    monkeypatch.setattr(window_scanner, "scan_emulators", lambda: [])
+
+
+@pytest.fixture(autouse=True)
 def isolated_settings(tmp_path, monkeypatch):
     """Give every test its own empty settings store.
 
@@ -186,6 +200,9 @@ class FakeControl:
 
     def full_shot(self):
         return None
+
+    def preview(self):
+        return self.full_shot()
 
     def close(self):
         self.closed = True

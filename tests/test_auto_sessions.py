@@ -80,6 +80,9 @@ class FakeControl:
     def full_shot(self):
         return "idle-frame"
 
+    def preview(self):
+        return self.full_shot()
+
     def close(self):
         self.closed = True
 

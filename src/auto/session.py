@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, Optional
 import realm_raid
 import tasks
 from auto.window_scanner import GameWindow, is_alive, open_if_minimised
+from adb_control import open_control
 from game_control import CaptureError, GameControl
 
 logger = logging.getLogger(__name__)
@@ -214,7 +215,10 @@ class GameSession:
         # for them, and the first version of this — which explained the problem
         # and made them fix it by hand — was answering a request with homework.
         opened = open_if_minimised(self.hwnd)
-        realm_raid.resize_game_window(self.hwnd)
+        if not self.window.is_emulator:
+            # An emulator's screen is its own resolution, set in the emulator;
+            # there is no window here to size.
+            realm_raid.resize_game_window(self.hwnd)
         control.refresh_metrics()
         # Still the fallback, for a window that would not come back. Starting
         # anyway is worse: nothing can be captured and every point scales to
@@ -336,7 +340,7 @@ class GameSession:
         if self.is_running and self._worker is not None:
             return self._worker.latest_frame()
         try:
-            return self._ensure_control().full_shot()
+            return self._ensure_control().preview()
         except CaptureError:
             return None
         except Exception:
@@ -351,5 +355,5 @@ class GameSession:
 
     def _ensure_control(self) -> GameControl:
         if self._control is None:
-            self._control = GameControl(self.hwnd)
+            self._control = open_control(self.hwnd, GameControl)
         return self._control

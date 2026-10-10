@@ -45,6 +45,7 @@ onmyoji-auto/
 | `ui/fields.py` | Sinh control từ Field — dùng chung cho trang tác vụ và Cài đặt chung |
 | `ui/preview.py` | Khung hình game → QPixmap cho thumbnail |
 | `souls_dungeon.py` | Vòng lặp Phụ bản ngự hồn (cửa sổ nào có nút Bắt đầu thì bấm) |
+| `adb.py` · `adb_control.py` | Giả lập Android: tìm qua ADB, chụp bằng `screencap`, bấm bằng `input tap` — cùng giao diện với `GameControl` |
 | `duel.py` · `duel_score.py` | Vòng lặp Đấu PvP; đọc điểm ở sảnh để dừng đúng mục tiêu |
 | `wanted_invite.py` | Trả lời lời mời truy — dùng chung cho mọi tác vụ |
 | `wiki/models.py` · `search.py` | Bản ghi wiki, tìm kiếm bỏ dấu |

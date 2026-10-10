@@ -97,6 +97,23 @@ Bot chạy nền — bạn vẫn dùng máy bình thường trong lúc nó chạ
 đang được chọn: `F1` tạm dừng hoặc chạy tiếp tất cả, `F2` kết thúc tất cả.
 `Ctrl+Shift+S` chụp cửa sổ game đang ở trước, bấm được cả khi đang ở trong game.
 
+### Chạy trên giả lập (thử nghiệm)
+
+Tool chạy được với game trên giả lập Android (BlueStacks, LDPlayer, Nox, MuMu,
+MEmu), cùng server với bản PC:
+
+```
+1. Trong cài đặt giả lập, bật ADB (BlueStacks: Cài đặt → Nâng cao →
+   Android Debug Bridge). LDPlayer, Nox, MuMu, MEmu bật sẵn.
+2. Để giả lập ở tỉ lệ 16:9 (vd 1600×900, 1280×720).
+3. Mở game trong giả lập, rồi bấm "Quét cửa sổ" trong tool.
+```
+
+Mỗi giả lập hiện thành một dòng tên kiểu `BlueStacks · 5555`, dùng như một cửa
+sổ game. Tool chụp và bấm qua ADB nên giả lập có bị che hay thu nhỏ cũng được,
+và tool không đợi khi chuột của bạn đang ở trên giả lập. Đã thử trên
+BlueStacks 5; giả lập khác nếu không hiện ra thì báo lại.
+
 ## Chạy từ mã nguồn
 
 Cần Python 3.10+ trên Windows.

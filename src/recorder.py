@@ -37,6 +37,7 @@ from typing import Optional
 import cv2
 
 import paths
+from adb_control import open_control
 from game_control import CaptureError, GameControl
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ class WindowRecorder(threading.Thread):
         control = self._control
         try:
             if control is None:
-                control = GameControl(self._hwnd)
+                control = open_control(self._hwnd, GameControl)
             first = control.full_shot()
             if first is None or getattr(first, "size", 0) == 0:
                 self._fail("Không chụp được cửa sổ để bắt đầu quay.")

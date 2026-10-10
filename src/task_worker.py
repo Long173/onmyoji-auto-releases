@@ -25,6 +25,7 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
+from adb_control import open_control
 from game_control import GameControl
 from geometry import Geometry
 
@@ -57,7 +58,8 @@ class TaskWorker(threading.Thread):
         on_error: Callback = None,
     ) -> None:
         super().__init__(name=name, daemon=True)
-        self._control = control if control is not None else GameControl(hwnd)
+        self._control = (control if control is not None
+                         else open_control(hwnd, GameControl))
         self._geometry = Geometry(
             self._control.client_width, self._control.client_height
         )

@@ -77,3 +77,21 @@ def test_a_counter_with_its_first_digit_blanked_is_not_full(topbar):
     # The "3" of the numerator sits 17-26 columns into the box.
     blanked[y1:y2, x1 + 16 - ORIGIN[0]:x1 + 27 - ORIGIN[0]] = 7
     assert TicketReader(Shot(frame_with(blanked))).is_full() is False
+
+
+# ── the same counter on an emulator ─────────────────────────────────────────
+#
+# BlueStacks 5 at 1600x900, stretched to the reference size the way every frame
+# is before matching. The digits read as they do on the PC client — "3" 0.99,
+# "0" 0.97 — but the slash comes out 4 px wide where the PC's is 5, and scored
+# 0.87 against it: one pixel short of the threshold, so a full stack read as
+# "not this counter" and the map farm never broke off to raid.
+
+EMULATOR_BAND = Path(__file__).parent / "fixtures" / "ticket" / "emulator_30of30_band.png"
+
+
+def test_an_emulators_full_counter_reads_full():
+    band = cv2.imdecode(np.fromfile(str(EMULATOR_BAND), np.uint8),
+                        cv2.IMREAD_GRAYSCALE)
+    assert band is not None
+    assert TicketReader(control=None).read_band(band) is True
