@@ -169,6 +169,15 @@ class TaskWindowCard(Card):
         top.addWidget(status_host)
         block.addLayout(top)
 
+        # Why the last run ended, when it ended by itself or failed. The status
+        # word alone ("ĐÃ XONG") read as a fault when a Duel run stopped at once
+        # because its window was outside PvP hours; the reason was only in a
+        # notification, and those are off by default.
+        self._reason = ElidedLabel(theme.body(12), theme.TEXT_DIM)
+        self._reason.hide()
+        block.addSpacing(6)
+        block.addWidget(self._reason)
+
         block.addSpacing(12)
         block.addWidget(self._build_thumbnail())
         block.addSpacing(14)
@@ -303,6 +312,10 @@ class TaskWindowCard(Card):
         self._dot.set_pulsing(running and session.status != "paused")
         self._status.setText(text.upper())
         self._status.setStyleSheet("color: %s; background: transparent;" % colour)
+        says_why = session.status in ("error", "done") and bool(session.message)
+        self._reason.setText(session.message if says_why else "")
+        self._reason.setStyleSheet("color: %s; background: transparent;" % colour)
+        self._reason.setVisible(says_why)
         self.set_border("#4a3d28" if running else theme.BORDER)
 
         # Only this task's own figures: a window that ran another task before

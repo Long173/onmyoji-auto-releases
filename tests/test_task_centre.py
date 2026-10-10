@@ -896,3 +896,29 @@ def test_another_tasks_haul_is_not_shown_under_this_one(dashboard):
     session._shards = {"Koi": 3}
 
     assert view._merged_shards([session]) == {}
+
+
+DUEL = "duel"
+OUT_OF_HOURS = "Ngoài giờ đấu PvP (nút Battle đã thành Prac.) — dừng sau 0 trận."
+
+
+def test_a_run_that_stopped_itself_says_why_on_its_card(dashboard):
+    """"Đã xong" alone read as a bug: started on a window outside PvP hours,
+    the Duel run stopped at once, and the reason was only in a notification."""
+    dashboard._manager.select(101, DUEL)
+    dashboard._show_page(DUEL)
+    dashboard._manager.start(101)
+
+    dashboard._on_session_finished(OUT_OF_HOURS, 101)
+    dashboard._show_page(DUEL)
+
+    card = dashboard._views[DUEL]._cards[101]
+    assert not card._reason.isHidden()
+    assert card._reason.full_text() == OUT_OF_HOURS
+    dashboard._show_page(HOME)
+    assert dashboard._home._rows[101]._status.text() == OUT_OF_HOURS
+
+
+def test_a_card_that_has_not_run_shows_no_reason(dashboard):
+    dashboard._show_page(RAID)
+    assert dashboard._views[RAID]._cards[101]._reason.isHidden()

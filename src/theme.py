@@ -94,7 +94,7 @@ STATUS = {
     "running": (ACCENT, "#4a3d28", "Đang chạy"),
     "paused": (ACCENT_HOVER, "#4a3d28", "Tạm dừng"),
     "error": (ERROR, "#4d2f2a", "Mất cửa sổ"),
-    "done": (SUCCESS, "#38402f", "Hết vé"),
+    "done": (SUCCESS, "#38402f", "Đã xong"),
 }
 
 EFFECT_KIND_COLOR = {

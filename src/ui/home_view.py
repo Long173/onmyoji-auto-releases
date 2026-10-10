@@ -162,7 +162,12 @@ class WindowRow(QtWidgets.QWidget):
         running = session.is_running
         self._dot.set_color(colour)
         self._dot.set_pulsing(running and session.status != "paused")
-        self._status.setText(session.message if session.status == "error" else text)
+        # A run that ended by itself says why, as a failed one does. "Đã xong"
+        # alone read as a fault when a Duel run stopped at once because the
+        # window it was started on was outside PvP hours.
+        says_why = session.status in ("error", "done") and bool(session.message)
+        self._status.setText(session.message if says_why else text)
+        self._status.setToolTip(session.message if says_why else "")
         self._status.setStyleSheet("color: %s; background: transparent;" % colour)
         self._elapsed.setText(GameSession.format_elapsed(session.elapsed_seconds))
 
