@@ -4,6 +4,22 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.25
+
+### Mới
+
+- **Chạy được trên giả lập** (BlueStacks, LDPlayer, Nox, MuMu, MEmu — thử
+  nghiệm): bật ADB trong cài đặt giả lập, mở game, bấm "Quét cửa sổ". Mỗi giả
+  lập hiện thành một dòng như cửa sổ game; giả lập bị che hay thu nhỏ vẫn chạy.
+- **Phá Kết Giới**: thêm tuỳ chọn "Thua thì dừng" và "Thua thì thông báo".
+
+### Sửa
+
+- Game chạy bằng quyền Administrator: tool báo rõ cách khắc phục thay vì lỗi
+  "Access is denied".
+
+---
+
 ## 3.24
 
 ### Thám hiểm chương
