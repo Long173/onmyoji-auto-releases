@@ -4,7 +4,7 @@
 
 Ứng dụng desktop chạy auto cho game **Onmyoji** trên PC, trên **nhiều cửa sổ
 game cùng lúc**: Phá Kết Giới, Ném đậu (Demon Parade), Thám hiểm chương, Phụ bản
-ngự hồn, và Event.
+ngự hồn, Đấu PvP, và Event.
 
 Mỗi tác vụ có video hướng dẫn ngắn: bấm **Xem video hướng dẫn** trên trang
 của tác vụ đó trong tool.
@@ -133,7 +133,7 @@ Chi tiết nằm trong `docs/`, mỗi file một chủ đề:
 | Tài liệu | Nội dung |
 | --- | --- |
 | [Kiến trúc](docs/kien-truc.md) | Cấu trúc thư mục, trách nhiệm từng module, cách Trung tâm tác vụ sinh ra từ registry, các quyết định về giao diện |
-| [Các tác vụ auto](docs/tac-vu.md) | Từng vòng lặp hoạt động ra sao — Phá Kết Giới, Ngự hồn, Ném đậu, đếm vé, lời mời truy |
+| [Các tác vụ auto](docs/tac-vu.md) | Từng vòng lặp hoạt động ra sao — Phá Kết Giới, Ngự hồn, Ném đậu, Đấu PvP, đếm vé, lời mời truy |
 | [Bách khoa](docs/bach-khoa.md) | Nguồn dữ liệu wiki, đồng bộ Supabase, chỗ hai nguồn không khớp |
 | [Đóng gói và phát hành](docs/dong-goi-va-phat-hanh.md) | Build .exe, phát hành lên GitHub Releases, cơ chế app tự thay chính nó |
 | [Ghi chú kỹ thuật](docs/ghi-chu-ky-thuat.md) | Những chỗ đã trả giá để tìm ra — DPI, chụp màn hình, toạ độ. Đọc trước khi sửa |

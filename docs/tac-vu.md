@@ -33,6 +33,80 @@ Nếu cùng một màn hình (START hoặc danh sách địch) khớp liên ti�
 `STUCK_LIMIT = 10` khung hình, bot coi như có modal vô hình đang nuốt click và
 bấm vào góc trái-trên để đóng nó.
 
+## Đấu PvP: chỉ bấm công tắc đang **tắt**
+
+Dựng từ bản quay 18 trận xếp hạng (`recordings/pvp`, Tier 1 → Tier 5). Một trận
+khoảng một phút, luôn đi qua cùng các màn:
+
+```
+sảnh ── Battle ──> ghép trận (~15s) ──> chọn thức thần ──> trận ──> kết quả ──> sảnh
+                                                                  │
+                                       lên bậc / thành tựu  <─────┘ (thỉnh thoảng)
+```
+
+Có hai kiểu màn chọn thức thần, và ở Tier 5 cả hai xen kẽ nhau:
+
+- **Chọn cùng lúc** (chữ "Fight", đếm 30 giây): game tự đặt đội đã lưu, chỉ cần
+  bấm **Ready**.
+- **Chọn theo lượt** (trống "Round 1…4"): mới vào thì auto pick luôn **tắt**, nút
+  ghi "Auto Deploy". Bấm một lần thì nó thành "Cancel Auto" và game tự chọn hết.
+
+Mỗi nút tác vụ bấm đều là một **công tắc mà chữ trên nó cho biết trạng thái**, và
+tác vụ chỉ bấm khi nó đang tắt — bấm nhầm lúc đang bật là tắt mất cái vừa bật:
+
+| Nút | Đang tắt | Đang bật | Tách được bao xa (ảnh xám) |
+|---|---|---|---|
+| Ready | chữ đỏ | chữ xám, có dùi trống | 0,95 / tối đa 0,84 — ngưỡng 0,9 |
+| Auto Deploy | "Auto Deploy" | "Cancel Auto" | 0,99 / 0,57 |
+| Auto trong trận | "Manual" | "Auto" | 0,85 / 0,59 |
+
+Chữ đổi chậm hơn cú bấm một chút (Ready mờ dần từ đỏ sang xám hơn một giây), nên
+mỗi nút bị chặn bấm lại trong 3 giây — Ready là 5 giây. Trận nào cũng bắt đầu ở
+Manual; trong bản quay người chơi bấm sang Auto bằng tay gần như mọi trận.
+
+Kết quả, lên bậc và bảng **"Achievement Complete"** được chạm qua ở cùng một chỗ
+(giữa đáy màn hình). Phần thưởng 1/3/5 trận thắng đầu tuần đến qua chính bảng
+thành tựu đó (ở trận thắng thứ 1, 3, 5 trong bản quay); "Wins This" thì tự cộng,
+không cần bấm. Thắng hay thua đều ra cùng chữ "Tap to continue", nên tác vụ
+không cần biết.
+
+Bảng thành tựu và màn lên bậc vẽ **đè lên sảnh**, và trống Battle vẫn khớp xuyên
+qua chúng — nên chúng phải được xét trước Battle.
+
+### Dừng: mục tiêu điểm, hoặc hết giờ
+
+Trước mỗi lần bấm Battle, tác vụ đọc điểm dưới bậc ở sảnh (`1958/2000`) và dừng
+khi đủ mục tiêu: 2400, 2700, hoặc Danh sĩ = 3000. Hết giờ mở PvP thì trống
+Battle thành **"Prac."** (luyện tập); tác vụ không bấm nó mà dừng luôn.
+
+**Đọc điểm** dùng cách tách chữ của ô vé (`raid_tickets.py`): cột sáng trong một
+dải cố định tách thành từng chữ. Ngưỡng sáng từ 100 tới 150 đều tách đúng cả 20
+sảnh trong bản quay; chọn 135. Nhưng **so chữ** thì không mượn được: trượt mẫu
+trên chữ đã đệm viền không phân biệt được 5, 6 và 8 — một chữ "6" của 1760 được
+0,90 là 5, 0,88 là 8 và chỉ 0,84 là chính nó. Chữ ở đây rộng 7 px, khác nhau một
+hai điểm ảnh ở một góc, mà trượt vài pixel là xoá mất. Nên không trượt nữa: cắt
+chữ sát mực, kéo về một cỡ cố định, so từng điểm với **nhiều** mẫu mỗi chữ (một
+mẫu "6" duy nhất vẫn thua "5", vì cùng một chữ rơi lên lưới điểm ảnh khác nhau
+mỗi khung). Bỏ từng chữ ra khỏi tập mẫu rồi đọc lại nó: 171/171 chữ đúng, hơn
+chữ kế tiếp ít nhất 0,14.
+
+**Danh sĩ không có điểm.** Từ Danh sĩ trở lên sảnh đếm sao, "5/30" cạnh một ngôi
+sao, thấp hơn dòng điểm khoảng 10 px. Quy tắc (do người chơi đưa ra): thấy số
+không đủ 4 chữ số là đã lên Danh sĩ — mục tiêu cao nhất — nên tác vụ dừng. Tác vụ
+đọc cả hai dòng; trên 21 sảnh thường dòng sao chưa lần nào ra một "N/M" ngắn, còn
+trên sảnh Grand Celebrity (ảnh người chơi gửi) nó đọc đúng "5/30".
+
+**Bản chụp thật khác bản quay.** Lần chạy thật đầu tiên dừng ngay ở sảnh đầu: dấu
+"/" ở đó rộng 4 px, còn mọi dấu "/" trong bản quay (1136x640 thu về 1122x633) chỉ
+3 px, và chỉ được 0,66. Chữ vẽ đúng ở cỡ chuẩn rộng hơn chữ bị thu nhỏ một điểm
+ảnh, chữ hẹp chịu ảnh hưởng nhiều nhất. Các mẫu `*_live*` trong
+`screenshots/Duel/digits` cắt từ chính lần chụp đó.
+
+Đọc không ra thì trả về *không đọc được*, không bao giờ là một con số đoán. Có
+mục tiêu mà sảnh không đọc được 6 lần liền thì tác vụ **dừng** — một bảng mờ dần
+qua sảnh chỉ tốn một hai lần. Thà dừng ở đó còn hơn đánh tiếp qua mục tiêu mà
+không thấy nó. Từ Danh sĩ trở lên có cấm thức thần, tác vụ không làm thay được.
+
 ## Phụ bản ngự hồn: nhận biết nút bằng **màu**, không phải hình
 
 Nút "Fight" trong phòng co-op có hai trạng thái: **vàng** khi bấm được, **xám**

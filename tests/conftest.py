@@ -60,6 +60,7 @@ STUBBED_WORKERS = {
     "beans": ("demon_parade", "DemonParadeWorker"),
     "event": ("event_clicker", "EventClickerWorker"),
     "exploration": ("exploration", "ExplorationWorker"),
+    "duel": ("duel", "DuelWorker"),
 }
 
 

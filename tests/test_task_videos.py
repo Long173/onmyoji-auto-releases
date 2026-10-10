@@ -14,8 +14,16 @@ from ui.task_sidebar import HOME  # noqa: E402
 YOUTUBE = re.compile(r"^https://youtu\.be/[\w-]{11}$")
 
 
+# Built, but the tutorial has not been recorded yet. Taking a task off this list
+# is what the test below then asks for.
+AWAITING_VIDEO: set = set()
+
+
 def test_every_built_task_has_a_tutorial():
     for spec in tasks.available():
+        if spec.id in AWAITING_VIDEO:
+            assert not spec.video, "%s has a video now: drop it from the list" % spec.id
+            continue
         assert YOUTUBE.match(spec.video), "%s has no tutorial link" % spec.id
 
 

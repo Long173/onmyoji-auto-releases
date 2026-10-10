@@ -517,6 +517,48 @@ def build_exploration(hwnd, control, config, on_finished, on_error):
     )
 
 
+# ── Duel (Đấu PvP) ──────────────────────────────────────────────────────────
+
+NO_TARGET = "Không"
+DANH_SI = "Danh sĩ"
+# What each choice means in points. Danh sĩ is reached at 3000.
+DUEL_TARGETS = {NO_TARGET: 0, "2400": 2400, "2700": 2700, DANH_SI: 3000}
+
+DUEL_FIELDS = (
+    Field("target", SEGMENTED, "Dừng khi đạt", tuple(DUEL_TARGETS), NO_TARGET),
+    Field("", NOTE, "Mở sảnh Đấu (Duel) rồi bấm Bắt đầu. Tác vụ bấm Battle, "
+                    "chờ ghép trận, ở màn chọn thức thần thì bấm Ready (đội "
+                    "hình lấy theo đội đã lưu) hoặc bật Auto Deploy nếu là màn "
+                    "chọn theo lượt, vào trận thì chuyển Manual sang Auto, hết "
+                    "trận thì chạm qua màn kết quả, màn lên bậc và bảng thành "
+                    "tựu (phần thưởng 1/3/5 trận thắng đầu tuần), rồi lặp lại. "
+                    "Thắng hay thua đều đánh tiếp, tụt hạng cũng mặc kệ."),
+    Field("", NOTE, "Trước mỗi trận tác vụ đọc điểm dưới bậc ở sảnh (vd "
+                    "1958/2000); đủ mục tiêu thì dừng. Lên Danh sĩ thì sảnh "
+                    "đếm sao (vd 5/30) chứ không còn điểm 4 chữ số — thấy vậy "
+                    "là biết đã lên Danh sĩ và dừng. Đọc không ra vài lần liền "
+                    "(có bảng che) thì cũng dừng, để không lỡ đánh quá mục "
+                    "tiêu. Hết giờ mở PvP "
+                    "thì nút Battle thành Prac. và tác vụ tự dừng. Từ Danh sĩ "
+                    "trở lên có cấm/chọn thức thần, tác vụ không làm thay được "
+                    "nên nên đặt mục tiêu tối đa là Danh sĩ."),
+)
+
+
+def build_duel(hwnd, control, config, on_finished, on_error):
+    import duel
+
+    return duel.DuelWorker(
+        hwnd=hwnd,
+        target=DUEL_TARGETS.get(config["target"], 0),
+        accept_wanted_quest=config["wanted_invite"] == ACCEPT,
+        accuracy=duel.DEFAULT_ACCURACY,
+        control=control,
+        on_finished=on_finished,
+        on_error=on_error,
+    )
+
+
 # ── the registry ────────────────────────────────────────────────────────────
 
 # Every task here is implemented. A spec may also be *declared* without a
@@ -582,6 +624,17 @@ TASKS: Tuple[TaskSpec, ...] = (
         fields=SOULS_FIELDS,
         build=build_souls_dungeon,
         video="https://youtu.be/TF_BSg7yK6c",
+    ),
+    TaskSpec(
+        id="duel",
+        name="Đấu PvP",
+        kicker="Tác vụ · Duel",
+        summary="Tự vào trận Đấu, bật auto chọn thức thần và auto đánh, chạm "
+                "qua kết quả rồi đánh tiếp tới khi đạt mục tiêu điểm.",
+        progress_label="trận đã đánh",
+        fields=DUEL_FIELDS,
+        build=build_duel,
+        video="https://youtu.be/4quBsuRE7nM",
     ),
 )
 

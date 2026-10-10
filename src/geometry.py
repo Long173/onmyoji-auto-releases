@@ -107,6 +107,25 @@ SOULS_FIGHT_LIT_SATURATION = 80.0   # midway between 4.5 and 149
 SOULS_RESULT_TAP: Point = (1054, 490)
 
 
+# ── Duel (Đấu PvP) ──────────────────────────────────────────────────────────
+# Recorded at a client area of 1136x640 (recordings/pvp) and scaled down.
+
+# The score under the tier in the lobby, "1958/2000". Starts left of the text's
+# first column, which does not move with the digits.
+DUEL_SCORE_BOX: Region = ((528, 431), (640, 450))
+# From Danh sĩ up the lobby counts stars instead, "5/30", about ten pixels lower
+# and after a star icon this box starts clear of.
+DUEL_STARS_BOX: Region = ((548, 440), (640, 461))
+
+# Where every tap-away screen is tapped: the result ("Tap to continue"), a new
+# tier ("Tap a blank area to skip") and the "Achievement Complete" popup — the
+# last of which is how the first 1/3/5 wins of the week hand out their reward.
+# Bottom centre is the prompt line on the first two and the popup's own banner
+# on the third. It is clear of the lineup cards in the middle of the result
+# screen, where a tap opens a shikigami's details instead.
+DUEL_TAP: Point = (560, 612)
+
+
 # ── Demon Parade (Ném đậu) ──────────────────────────────────────────────────
 # Measured live at a client of 1122x633.
 
