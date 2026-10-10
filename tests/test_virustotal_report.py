@@ -97,3 +97,17 @@ def test_without_a_key_the_scan_is_skipped_quietly(monkeypatch, tmp_path, capsys
 
     assert vt.main(["x", str(exe), "v3.22", "Long173/onmyoji-auto-releases"]) == 0
     assert "skipping" in capsys.readouterr().out
+
+
+def test_an_engine_is_shown_by_the_name_its_website_uses():
+    """The API says "APEX"; virustotal.com shows the same engine as "SecureAge".
+
+    3.22's notes took the two for different engines. A player comparing the
+    release page with the website should see the name they see there.
+    """
+    text = vt.section(report({"APEX": "Malicious"}), SHA)
+    assert "| SecureAge (APEX) |" in text
+
+
+def test_an_engine_with_one_name_keeps_it():
+    assert vt.display_name("Zillya") == "Zillya"

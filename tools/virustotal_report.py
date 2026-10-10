@@ -61,6 +61,12 @@ EXPLANATIONS: Tuple[Tuple[Tuple[str, ...], str], ...] = (
      "Nhãn chung chung, không chỉ ra mã độc cụ thể nào — kiểu báo các phần "
      "mềm này dùng cho file .exe không có chữ ký số."),
 )
+# The API keys some engines by product where virustotal.com shows the vendor.
+# "APEX" is SecureAge's product: one engine, two names. 3.22's notes took them
+# for two different engines, so the table now shows the website's name with the
+# API's in brackets.
+ENGINE_NAMES = {"APEX": "SecureAge (APEX)"}
+
 UNEXPLAINED = ("Chưa có giải thích cho nhãn này — cần kiểm tra lại trước khi "
                "trả lời người dùng.")
 
@@ -77,6 +83,11 @@ def explain(label: str) -> str:
         if any(pattern in lowered for pattern in patterns):
             return text
     return UNEXPLAINED
+
+
+def display_name(engine: str) -> str:
+    """The engine as a player sees it on virustotal.com."""
+    return ENGINE_NAMES.get(engine, engine)
 
 
 def flagged(report: dict) -> List[Tuple[str, str]]:
@@ -105,7 +116,8 @@ def section(report: dict, sha256: str) -> str:
     if hits:
         lines += ["", "| Phần mềm | Nhãn | Vì sao |", "| --- | --- | --- |"]
         for engine, label in hits:
-            lines.append("| %s | `%s` | %s |" % (engine, label.replace("|", "/"),
+            lines.append("| %s | `%s` | %s |" % (display_name(engine),
+                                                 label.replace("|", "/"),
                                                  explain(label)))
         lines += ["", CONTEXT]
     lines.append(END)
