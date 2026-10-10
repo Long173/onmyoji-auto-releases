@@ -4,6 +4,41 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.22
+
+### Mới
+
+- **Chỉnh cỡ chữ**: vào Cài đặt chung (F9) → Cỡ chữ, chọn 100% đến 150%. Áp
+  dụng ngay, không cần mở lại tool.
+
+### Thám hiểm chương
+
+- Sửa lỗi đánh vài ổ rồi đứng kéo bản đồ mãi: nếu bản đồ trong game bị thu nhỏ
+  (zoom out), tool trước đây không nhận ra ổ quái và boss. Giờ nhận ra được.
+
+### Về việc bị báo virus
+
+Bản 3.21 khi đưa lên VirusTotal bị **3/71** phần mềm diệt virus báo. Tool không
+có virus — đây là lý do và những gì đã làm:
+
+- **Vì sao bị báo:** tool viết bằng Python và được đóng gói thành file .exe bằng
+  một công cụ tên PyInstaller. Phần khởi động của file .exe do PyInstaller làm
+  sẵn, giống hệt nhau ở mọi chương trình dùng nó — kể cả một số mã độc cũng
+  viết bằng Python. Vài phần mềm diệt virus nhớ "mặt" phần khởi động đó nên báo
+  nhầm cả những chương trình vô hại.
+- **Đã sửa:** từ bản này, phần khởi động được tự dựng riêng cho tool, không còn
+  dùng bản làm sẵn. Bản 3.22 chỉ còn **1/71** phần mềm báo. Windows Defender,
+  Kaspersky, BitDefender, Avast… đều báo sạch.
+- **Vì sao còn 1 (SecureAge):** phần mềm này báo "Malicious" (độc hại) cho hầu
+  hết file .exe chưa có **chữ ký số** — một loại giấy chứng nhận người làm phần
+  mềm phải mua hằng năm. Nó không chỉ ra mã độc cụ thể nào. Muốn hết hẳn thì
+  phải mua chữ ký số; tool miễn phí nên hiện chưa có.
+- **Tự kiểm tra được:** mã nguồn công khai trên GitHub, và file .exe do GitHub
+  tự dựng từ chính mã nguồn đó chứ không phải dựng trên máy ai. Kết quả quét
+  VirusTotal của từng bản được ghi ngay trong trang phát hành, bên dưới.
+
+---
+
 ## 3.21
 
 ### Mới
