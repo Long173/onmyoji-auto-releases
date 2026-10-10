@@ -15,6 +15,7 @@ import geometry
 import tasks
 import theme
 from ui import controls
+from ui.primitives import text_width
 from ui.primitives import (Divider, FlowLayout, body_text, hbox, label,
                           section_label, vbox)
 
@@ -140,7 +141,7 @@ class FieldForm(QtWidgets.QWidget):
         readout = label("", theme.tabular(13), theme.TEXT)
         readout.setAlignment(QtCore.Qt.AlignCenter)
         readout.setFixedHeight(34)
-        readout.setMinimumWidth(96)
+        text_width(readout, 96, "min")
         readout.setStyleSheet(
             "background: %s; border: 1px solid %s; border-radius: %dpx;"
             " color: %s; padding: 0 10px;"

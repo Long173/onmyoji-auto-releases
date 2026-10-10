@@ -114,9 +114,28 @@ BODY_FAMILY = "Lora"
 MONO_FAMILY = "IBM Plex Mono"
 
 
+# Every font in the app is made by `_font`, so this one factor sizes all text.
+# Set from the "Cỡ chữ" app setting, at start-up and whenever it changes.
+_text_scale = 1.0
+
+
+def set_text_scale(scale: float) -> None:
+    global _text_scale
+    _text_scale = float(scale)
+
+
+def text_scale() -> float:
+    return _text_scale
+
+
+def px(size: float) -> int:
+    """A length that grows with the text: a column that holds words."""
+    return round(size * _text_scale)
+
+
 def _font(family_key: str, size: float, weight: int, tracking: float = 0.0) -> QtGui.QFont:
     font = QtGui.QFont(fonts.family(family_key))
-    font.setPixelSize(round(size))
+    font.setPixelSize(round(size * _text_scale))
     font.setWeight(_qt_weight(weight))
     if tracking:
         # CSS tracking is in em; Qt wants a percentage where 100 means normal.

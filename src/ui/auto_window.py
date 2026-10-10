@@ -24,7 +24,7 @@ from auto import window_scanner
 from auto.manager import SessionManager
 from auto.session import GameSession
 import hotkeys
-from ui import app_icon, notifications, preview, snapshot_dialog
+from ui import app_icon, notifications, preview, primitives, snapshot_dialog
 from ui.chrome import FramelessWindow
 from ui.home_view import HomeView
 from ui.page_header import PageHeader
@@ -128,6 +128,9 @@ class AutoWindow(FramelessWindow):
     sessionFailed = QtCore.pyqtSignal(str, int)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
+        # Before anything is built: every font is sized when it is made.
+        theme.set_text_scale(
+            tasks.text_scale(app_settings.open_store().value("text_size")))
         super().__init__("%s — %s" % (theme.APP_NAME, theme.APP_SUBTITLE), parent)
         self._settings = app_settings.open_store()
         self._migrate_legacy_settings()
@@ -1109,6 +1112,8 @@ class AutoWindow(FramelessWindow):
             self._install_hotkey(announce=True)
         if key == "pause_while_hovering":
             game_control.set_pause_while_hovering(tasks.as_bool(value))
+        if key == "text_size":
+            self._apply_text_scale(tasks.text_scale(value))
         logger.info("App setting %s = %r", key, value)
         # A worker already running keeps the value it started with; the setting
         # is read when a worker is built. Say so rather than let it look applied.
@@ -1118,6 +1123,38 @@ class AutoWindow(FramelessWindow):
                 "Đã lưu. Cửa sổ đang chạy vẫn dùng thiết lập cũ tới khi khởi "
                 "động lại tác vụ.",
             )
+
+    def _apply_text_scale(self, scale: float) -> None:
+        """Resize the text already on screen; anything built later is born so.
+
+        Only widgets whose font was set on them are touched. The rest inherit
+        theirs, and scaling them too would scale their text twice. Each widget
+        remembers the size its font was made at, so stepping through several
+        sizes and back lands exactly where it started instead of drifting by a
+        rounding error per step.
+        """
+        old = theme.text_scale()
+        if scale == old:
+            return
+        theme.set_text_scale(scale)
+        for top in QtWidgets.QApplication.topLevelWidgets():
+            for widget in [top] + top.findChildren(QtWidgets.QWidget):
+                if not widget.testAttribute(QtCore.Qt.WA_SetFont):
+                    continue
+                font = widget.font()
+                if font.pixelSize() <= 0:
+                    continue
+                base = widget.property("_base_px")
+                if base is None:
+                    base = font.pixelSize() / old
+                    widget.setProperty("_base_px", base)
+                font.setPixelSize(round(base * scale))
+                widget.setFont(font)
+            primitives.rescale_widths(top)
+        # The card grid counts how many columns of cards fit; cards are wider now.
+        for view in self._views.values():
+            view.resizeEvent(QtGui.QResizeEvent(view.size(), view.size()))
+        logger.info("Text size set to %d%%", round(scale * 100))
 
     def _open_settings(self) -> None:
         """F9, and the sidebar row. Both just go to the page."""

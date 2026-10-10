@@ -58,6 +58,35 @@ def label(
     return widget
 
 
+_WIDTH_SETTERS = {
+    "fixed": QtWidgets.QWidget.setFixedWidth,
+    "max": QtWidgets.QWidget.setMaximumWidth,
+    "min": QtWidgets.QWidget.setMinimumWidth,
+}
+
+
+def text_width(widget: QtWidgets.QWidget, width: float, kind: str = "fixed") -> None:
+    """Give ``widget`` a width that grows with the text-size setting.
+
+    For columns sized to hold words: at 150% text a fixed 336px config column
+    cut its own labels in half. The width as designed is remembered on the
+    widget, so :func:`rescale_widths` can re-apply it after the setting changes.
+    """
+    widget.setProperty("_base_width", float(width))
+    widget.setProperty("_width_kind", kind)
+    _WIDTH_SETTERS[kind](widget, theme.px(width))
+
+
+def rescale_widths(root: QtWidgets.QWidget) -> None:
+    """Re-apply every :func:`text_width` under ``root`` at the current scale."""
+    for widget in [root] + root.findChildren(QtWidgets.QWidget):
+        base = widget.property("_base_width")
+        if base is None:
+            continue
+        kind = widget.property("_width_kind") or "fixed"
+        _WIDTH_SETTERS[kind](widget, theme.px(float(base)))
+
+
 def section_label(text: str, color: str = theme.TEXT_LABEL) -> QtWidgets.QLabel:
     """Mono, uppercase, widely tracked — the design's section heading."""
     return label(text.upper(), theme.mono(10, tracking=0.2), color)

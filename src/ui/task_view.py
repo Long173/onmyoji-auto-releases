@@ -14,6 +14,7 @@ import theme
 from auto.session import GameSession
 from ui import controls, fields, preview
 from ui.fields import FieldForm
+from ui.primitives import text_width
 from ui.primitives import (Card, Divider, ElidedLabel, FlowLayout, HatchFrame,
                            StatusDot, body_text, hbox, label, section_label, vbox)
 
@@ -136,7 +137,7 @@ class TaskWindowCard(Card):
         super().__init__(parent=parent)
         self.hwnd = session.hwnd
         self._spec = spec
-        self.setMaximumWidth(MAX_CARD_WIDTH)
+        text_width(self, MAX_CARD_WIDTH, "max")
         # A freshly built card has nothing to show, so its first refresh always
         # captures rather than waiting for the throttle to come round.
         self._needs_frame = True
@@ -437,7 +438,8 @@ class TaskView(QtWidgets.QWidget):
 
         panel = ConfigPanel(spec, config, frame_source=self._any_frame)
         panel.optionChanged.connect(self.optionChanged)
-        row.addWidget(self._scrolling(panel))
+        self._config_scroll = self._scrolling(panel)
+        row.addWidget(self._config_scroll)
         row.addWidget(Divider(horizontal=False))
         row.addWidget(self._build_windows(), 1)
         self.setLayout(row)
@@ -466,7 +468,7 @@ class TaskView(QtWidgets.QWidget):
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        scroll.setFixedWidth(CONFIG_WIDTH)
+        text_width(scroll, CONFIG_WIDTH)
         scroll.setWidget(panel)
         return scroll
 
@@ -562,7 +564,7 @@ class TaskView(QtWidgets.QWidget):
     def _columns_that_fit(self) -> int:
         width = self._scroll.viewport().width() - 60   # the column's own margins
         spacing = self._grid.spacing()
-        fits = (width + spacing) // (MIN_CARD_WIDTH + spacing)
+        fits = (width + spacing) // (theme.px(MIN_CARD_WIDTH) + spacing)
         return max(1, min(MAX_CARD_COLUMNS, int(fits)))
 
     def _place_cards(self) -> None:

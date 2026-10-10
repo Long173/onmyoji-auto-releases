@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 import theme
 from ui import controls
-from ui.primitives import body_text, eyebrow, hbox, label, vbox
+from ui.primitives import body_text, eyebrow, hbox, label, text_width, vbox
 
 
 def open_url(url: str) -> None:
@@ -27,9 +27,11 @@ class PageHeader(QtWidgets.QWidget):
 
         text = vbox(7)
         self._kicker = eyebrow("")
-        self._title = label("", theme.display(36))
+        # Wraps rather than holding the row open: at a large text size the title
+        # alone is wider than the room beside the buttons.
+        self._title = label("", theme.display(36), wrap=True)
         self._summary = body_text("", 13.5, theme.TEXT_MUTED)
-        self._summary.setMaximumWidth(680)
+        text_width(self._summary, 680, "max")
         text.addWidget(self._kicker)
         text.addWidget(self._title)
         text.addWidget(self._summary)
@@ -49,6 +51,13 @@ class PageHeader(QtWidgets.QWidget):
         self._video.clicked.connect(self._on_video)
         self._video.setVisible(False)
         self._video_url = ""
+
+        # Never narrower than their own words: at a large text size the row runs
+        # short of room, and it is the summary that should wrap, not the buttons
+        # that should lose their labels.
+        for button in (self._video, self._toggle):
+            button.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                                 QtWidgets.QSizePolicy.Fixed)
 
         actions = hbox(10)
         # Bottom-aligned so the row sits on the summary's last line rather than

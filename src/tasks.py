@@ -252,6 +252,8 @@ APP_FIELDS: Tuple[Field, ...] = (
     Field("start_with_windows", TOGGLE, "Khởi động cùng Windows", default=False),
     Field("snapshot_hotkey", HOTKEY, "Phím chụp nhanh",
           default="Ctrl+Shift+S"),
+    Field("text_size", SEGMENTED, "Cỡ chữ",
+          ("100%", "110%", "125%", "150%"), "100%"),
     Field("record_fps", SEGMENTED, "Quay video",
           ("5 fps", "10 fps", "15 fps", "30 fps"), "10 fps"),
 )
@@ -271,6 +273,8 @@ APP_FIELD_NOTES = {
                           "cho riêng tài khoản này, nên bỏ được cả từ đây hoặc "
                           "từ tab Startup trong Task Manager; app đọc lại từ đó "
                           "nên hai bên không lệch nhau.",
+    "text_size": "Phóng to chữ trong tool. Áp dụng ngay, không cần khởi động "
+                 "lại.",
     "record_fps": "Số khung mỗi giây khi bấm Quay trên một cửa sổ. Cảnh ít "
                   "động thì 10 fps khoảng 6 MB/phút, 30 fps khoảng 20 MB/phút; "
                   "cảnh đánh nhau liên tục có thể lên 26 MB/phút — một đêm là "
@@ -285,6 +289,20 @@ APP_FIELD_NOTES = {
                      "tượng ở khay; thoát hẳn thì nhấn phải rồi chọn Thoát. Tắt "
                      "tuỳ chọn này thì X thoát luôn như trước.",
 }
+
+
+# The text sizes the setting may hold, outside which a stored value is ignored.
+TEXT_SCALE_RANGE = (0.5, 3.0)
+
+
+def text_scale(value: Any) -> float:
+    """"125%" -> 1.25. Anything unreadable or absurd is 1.0, never an error."""
+    try:
+        scale = float(str(value).replace("%", "").strip()) / 100
+    except (TypeError, ValueError):
+        return 1.0
+    low, high = TEXT_SCALE_RANGE
+    return scale if low <= scale <= high else 1.0
 
 
 def app_defaults() -> Dict[str, Any]:

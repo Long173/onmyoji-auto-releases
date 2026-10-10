@@ -12,7 +12,7 @@ from PyQt5 import QtCore, QtWidgets
 import tasks
 import theme
 from ui import controls
-from ui.primitives import Divider, label, section_label, vbox
+from ui.primitives import Divider, label, section_label, text_width, vbox
 import features
 from ui.wiki_page import SECTIONS as WIKI_SECTIONS
 
@@ -45,7 +45,7 @@ class TaskSidebar(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
-        self.setFixedWidth(WIDTH)
+        text_width(self, WIDTH)
         self.setObjectName("taskSidebar")
         self.setStyleSheet("#taskSidebar { background: %s; }" % theme.SIDEBAR)
 

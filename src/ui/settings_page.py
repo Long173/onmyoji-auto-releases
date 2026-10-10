@@ -33,7 +33,8 @@ import theme
 import updater
 from ui import controls
 from ui.fields import FieldForm
-from ui.primitives import Divider, body_text, hbox, label, section_label, vbox
+from ui.primitives import (Divider, body_text, hbox, label, section_label,
+                           text_width, vbox)
 
 
 class SettingsPage(QtWidgets.QWidget):
@@ -132,7 +133,7 @@ class SettingsPage(QtWidgets.QWidget):
                              ("Ảnh chụp", snapshot_dialog.snapshot_dir())):
             row = hbox(10)
             tag = label(name, theme.mono(11, tracking=0.06), theme.TEXT_FAINT)
-            tag.setFixedWidth(84)
+            text_width(tag, 84)
             row.addWidget(tag)
             link = label("", theme.tabular(12), theme.TEXT_SECONDARY)
             url = QtCore.QUrl.fromLocalFile(str(folder)).toString()
@@ -315,7 +316,7 @@ class SettingsPage(QtWidgets.QWidget):
         for name, value in rows:
             row = hbox(10)
             name_label = label(name, theme.mono(11, tracking=0.06), theme.TEXT_FAINT)
-            name_label.setFixedWidth(width)
+            text_width(name_label, width)
             row.addWidget(name_label)
             value_label = label(value, theme.tabular(13), theme.TEXT_SECONDARY)
             # Selectable so it can be copied out — a phone number nobody can

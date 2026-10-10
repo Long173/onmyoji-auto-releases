@@ -9,6 +9,7 @@ import tasks
 import theme
 from auto.session import GameSession
 from ui import controls
+from ui.primitives import text_width
 from ui.primitives import (Badge, Divider, ElidedLabel, StatusDot, body_text, hbox,
                            label, section_label, vbox)
 
@@ -106,7 +107,7 @@ class WindowRow(QtWidgets.QWidget):
         actions.addWidget(self._reveal)
 
         action_host = QtWidgets.QWidget()
-        action_host.setFixedWidth(ACTION_COLUMN_WIDTH)
+        text_width(action_host, ACTION_COLUMN_WIDTH)
         action_host.setLayout(actions)
 
         row.addLayout(identity, COLUMN_STRETCH[0])
@@ -279,7 +280,7 @@ class HomeView(QtWidgets.QWidget):
         for caption, stretch in zip(captions, COLUMN_STRETCH):
             row.addWidget(section_label(caption), stretch)
         spacer = QtWidgets.QWidget()
-        spacer.setFixedWidth(ACTION_COLUMN_WIDTH)
+        text_width(spacer, ACTION_COLUMN_WIDTH)
         row.addWidget(spacer)
 
         column = vbox(0)
