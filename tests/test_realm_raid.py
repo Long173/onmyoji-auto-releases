@@ -15,6 +15,8 @@ import pytest
 import geometry
 import realm_raid
 import task_worker
+import tasks
+from conftest import bare_control
 from realm_raid import RealmRaidWorker
 
 REFERENCE = geometry.REFERENCE_CLIENT_SIZE
@@ -1516,3 +1518,60 @@ def test_a_board_with_refresh_is_re_rolled_not_forgiven(stub_control, monkeypatc
     worker._refused.append(GUILD_CARD)
 
     assert not worker._forgive_refusals()
+
+
+# ── what to do about a lost battle ──────────────────────────────────────────
+#
+# Asked for by the owner: two switches on the task page, "Thua thì dừng" and
+# "Thua thì thông báo". A defeat is the Failed panel — the one screen that only
+# a lost battle shows.
+
+def test_stop_on_defeat_ends_the_run_with_a_reason(stub_control):
+    finished = []
+    worker = stub_control(matches={realm_raid.TPL_FAILED: (379, 174)},
+                          stop_on_defeat=True, on_finished=finished.append)
+    worker.start()
+    worker.join(3)
+    assert not worker.is_alive(), "a defeat did not end the run"
+    assert worker._control.clicks, "the Failed panel was left on screen"
+    assert finished and "Thua" in finished[0]
+
+
+def test_a_defeat_without_the_option_keeps_going(stub_control):
+    worker = stub_control(matches={realm_raid.TPL_FAILED: (379, 174)})
+    worker.start()
+    time.sleep(SETTLE)
+    assert worker.is_alive()
+
+
+def test_notify_on_defeat_announces_each_loss_once(stub_control):
+    """The panel sits there for several passes; one loss is one notice."""
+    notices = []
+    worker = stub_control(matches={realm_raid.TPL_FAILED: (379, 174)},
+                          notify_on_defeat=True)
+    worker.set_notice(notices.append)
+    for _ in range(5):
+        worker._step()
+    assert len(notices) == 1 and "Thua" in notices[0]
+
+
+def test_no_notice_without_the_option(stub_control):
+    notices = []
+    worker = stub_control(matches={realm_raid.TPL_FAILED: (379, 174)})
+    worker.set_notice(notices.append)
+    worker._step()
+    assert notices == []
+
+
+def test_the_task_page_offers_both_switches():
+    keys = {field.key for field in tasks.BY_ID["realm_raid"].fields}
+    assert {"stop_on_defeat", "notify_on_defeat"} <= keys
+
+
+def test_the_builder_passes_both_switches():
+    config = tasks.merge_layers(
+        tasks.coerce_app(None),
+        tasks.BY_ID["realm_raid"].coerce({"stop_on_defeat": True,
+                                          "notify_on_defeat": True}))
+    made = tasks.build_realm_raid(1, bare_control(), config, None, None)
+    assert made._stop_on_defeat and made._notify_on_defeat

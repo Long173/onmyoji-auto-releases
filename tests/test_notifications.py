@@ -164,3 +164,17 @@ def test_a_failure_still_marks_the_card(captured):
     assert session is not None
     assert session.status == "error"
     assert session.message == "Mất cửa sổ game"
+
+
+def test_a_running_tasks_notice_reaches_the_tray_even_with_finish_notices_off(captured):
+    """"Thua thì thông báo" is its own opt-in; it must not also need
+    "Thông báo khi xong" switched on."""
+    dashboard, sent = captured
+    dashboard._manager.set_app_option("notify_on_finish", False)
+
+    dashboard._on_session_notice("Thua một trận phá kết giới (lần 1 trong lượt chạy này).", 101)
+
+    assert len(sent) == 1
+    title, body, _kind = sent[0]
+    assert "Thua" in body
+    assert dashboard._manager.get(101).title in title

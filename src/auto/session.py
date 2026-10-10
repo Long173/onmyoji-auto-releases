@@ -189,6 +189,7 @@ class GameSession:
         config: Dict[str, Any],
         on_finished: Optional[Callable[[str, int], None]] = None,
         on_error: Optional[Callable[[str, int], None]] = None,
+        on_notice: Optional[Callable[[str, int], None]] = None,
     ) -> None:
         """Run the chosen task. No-op if one is already running."""
         if self.is_running:
@@ -238,6 +239,8 @@ class GameSession:
             on_finished=lambda msg: on_finished and on_finished(msg, self.hwnd),
             on_error=lambda msg: on_error and on_error(msg, self.hwnd),
         )
+        if on_notice is not None and hasattr(self._worker, "set_notice"):
+            self._worker.set_notice(lambda msg: on_notice(msg, self.hwnd))
         self._active_task = spec.id
         self._stats_task = spec.id
         self._progress = 0

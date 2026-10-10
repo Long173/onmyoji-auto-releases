@@ -126,6 +126,7 @@ class AutoWindow(FramelessWindow):
     # a queued connection hands the work back to the right thread.
     sessionFinished = QtCore.pyqtSignal(str, int)
     sessionFailed = QtCore.pyqtSignal(str, int)
+    sessionNotice = QtCore.pyqtSignal(str, int)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         # Before anything is built: every font is sized when it is made.
@@ -181,6 +182,7 @@ class AutoWindow(FramelessWindow):
 
         self.sessionFinished.connect(self._on_session_finished)
         self.sessionFailed.connect(self._on_session_failed)
+        self.sessionNotice.connect(self._on_session_notice)
 
         self._timer = QtCore.QTimer(self)
         self._timer.setInterval(REFRESH_MS)
@@ -571,7 +573,8 @@ class AutoWindow(FramelessWindow):
         task_id = None if self._page == HOME else self._page
         try:
             self._manager.start(
-                hwnd, self._finished_from_worker, self._failed_from_worker, task_id
+                hwnd, self._finished_from_worker, self._failed_from_worker, task_id,
+                self._notice_from_worker,
             )
         except Exception as exc:  # noqa: BLE001 - shown to the user
             logger.exception("Could not start window 0x%08x", hwnd)
@@ -585,7 +588,8 @@ class AutoWindow(FramelessWindow):
     def _on_start_all(self) -> None:
         task_id = None if self._page == HOME else self._page
         errors = self._manager.start_all(
-            self._finished_from_worker, self._failed_from_worker, task_id
+            self._finished_from_worker, self._failed_from_worker, task_id,
+            self._notice_from_worker,
         )
         if errors:
             QtWidgets.QMessageBox.warning(
@@ -1027,6 +1031,19 @@ class AutoWindow(FramelessWindow):
 
     def _failed_from_worker(self, message: str, hwnd: int) -> None:
         self.sessionFailed.emit(message, hwnd)
+
+    def _notice_from_worker(self, message: str, hwnd: int) -> None:
+        self.sessionNotice.emit(message, hwnd)
+
+    def _on_session_notice(self, message: str, hwnd: int) -> None:
+        """Something a running task wants seen — sent only when its own option
+        asks for it, so not gated on "Thông báo khi xong"."""
+        session = self._manager.get(hwnd)
+        title = session.title if session is not None else ""
+        self._notifier.notify(
+            "%s — %s" % (theme.APP_NAME, title) if title else theme.APP_NAME,
+            message,
+        )
 
     def _on_session_finished(self, message: str, hwnd: int) -> None:
         session = self._manager.get(hwnd)

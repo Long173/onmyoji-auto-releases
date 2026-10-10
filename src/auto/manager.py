@@ -139,7 +139,7 @@ class SessionManager:
     # ── control ─────────────────────────────────────────────────────────────
 
     def start(self, hwnd: int, on_finished: Notify = None, on_error: Notify = None,
-              task_id: Optional[str] = None) -> None:
+              task_id: Optional[str] = None, on_notice: Notify = None) -> None:
         """Start one window.
 
         ``task_id`` selects that task first, so "start" on a task's own page
@@ -152,7 +152,8 @@ class SessionManager:
         if task_id is not None:
             session.select(task_id)
         session.start(
-            self.config_for(session.task_id or "", session), on_finished, on_error
+            self.config_for(session.task_id or "", session), on_finished, on_error,
+            on_notice,
         )
 
     def stop(self, hwnd: int) -> None:
@@ -165,6 +166,7 @@ class SessionManager:
         on_finished: Notify = None,
         on_error: Notify = None,
         task_id: Optional[str] = None,
+        on_notice: Notify = None,
     ) -> List[str]:
         """Start every idle window. Returns the errors that stopped any of them.
 
@@ -186,7 +188,7 @@ class SessionManager:
             try:
                 session.start(
                     self.config_for(session.task_id or "", session),
-                    on_finished, on_error,
+                    on_finished, on_error, on_notice,
                 )
             except Exception as exc:  # noqa: BLE001 - reported to the caller
                 logger.warning("Could not start 0x%08x: %s", session.hwnd, exc)

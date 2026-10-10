@@ -217,6 +217,9 @@ CAPTURE_RETRY_SECONDS = 1.0
 # first, which with the ~9 s an attempt takes started the next battle up to
 # 40 s late; the owner watched a guild ticket sit unused and asked why.
 COOLDOWN_BACKOFF_SECONDS = 5.0
+# A Failed panel seen again within this long is the same defeat, still closing.
+# No raid battle is shorter.
+DEFEAT_DEBOUNCE_SECONDS = 8.0
 # The skip list is wiped by a re-roll, and the guild board has none — so once
 # every live card on it is struck off, nothing ever cleared it. That run then sat
 # in front of five live barriers from 09:30 until somebody looked. With no
@@ -247,6 +250,8 @@ class RealmRaidWorker(TaskWorker):
         stop_when_out_of_tickets: bool = True,
         accept_wanted_quest: bool = False,
         control: Optional[GameControl] = None,
+        stop_on_defeat: bool = False,
+        notify_on_defeat: bool = False,
     ) -> None:
         # A caller running several windows at once shares one GameControl per
         # window with the UI, so the preview and the loop capture through the
@@ -257,6 +262,12 @@ class RealmRaidWorker(TaskWorker):
         self._auto_refresh = auto_refresh
         self._stop_when_out_of_tickets = stop_when_out_of_tickets
         self._accept_wanted_quest = accept_wanted_quest
+        self._stop_on_defeat = stop_on_defeat
+        self._notify_on_defeat = notify_on_defeat
+        self._defeats = 0
+        self._last_defeat_at: Optional[float] = None
+        # Why the run ended by itself, when it was not the tickets.
+        self._finish_message = ""
         self._leave_cancel = self._geometry.point(geometry.RAID_LEAVE_CANCEL)
         self._ready_button = self._geometry.point(geometry.TAP_READY_BUTTON)
         self._popup_dismiss = self._geometry.point(geometry.POPUP_DISMISS_POINT)
@@ -348,8 +359,9 @@ class RealmRaidWorker(TaskWorker):
             self._control.close()
 
         if finished:
-            logger.info("Raid run finished (out of tickets)")
-            self._notify(self._on_finished, "Hết vé phá kết giới.")
+            message = self._finish_message or "Hết vé phá kết giới."
+            logger.info("Raid run finished: %s", message)
+            self._notify(self._on_finished, message)
         else:
             logger.info("Raid worker stopped")
 
@@ -1137,9 +1149,26 @@ class RealmRaidWorker(TaskWorker):
         position = self._find(TPL_FAILED, gray=False)
         if position is None:
             return False
-        logger.info("Defeated; will refresh the enemy list")
+        # The panel stays up for a pass or two after the tap that closes it;
+        # one lost battle is one defeat, however many passes show it.
+        now = time.monotonic()
+        fresh = (self._last_defeat_at is None
+                 or now - self._last_defeat_at > DEFEAT_DEBOUNCE_SECONDS)
+        self._last_defeat_at = now
+        if fresh:
+            self._defeats += 1
+            logger.info("Defeated (%d this run); will refresh the enemy list",
+                        self._defeats)
+            if self._notify_on_defeat:
+                self._announce("Thua một trận phá kết giới (lần %d trong lượt "
+                               "chạy này)." % self._defeats)
         self._control.click(position)
         self._refresh_pending = True
+        if self._stop_on_defeat:
+            # Asked for as "Thua thì dừng": the panel is closed, then the run
+            # ends there, before another ticket is spent.
+            self._finish_message = "Thua một trận — dừng theo cấu hình."
+            self._finish_now = True
         return True
 
     def _handle_ok_dialog(self) -> bool:

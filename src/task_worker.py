@@ -71,6 +71,10 @@ class TaskWorker(threading.Thread):
 
         self._on_finished = on_finished
         self._on_error = on_error
+        # Something worth telling the user while the run carries on — a lost
+        # raid, say. Set by the session after the worker is built, so builders
+        # and their signatures stay as they are.
+        self._on_notice: Callback = None
         self._iteration = 0
         # Whether the last pass found clicks being withheld, so the change can
         # be announced once instead of every pass.
@@ -194,6 +198,13 @@ class TaskWorker(threading.Thread):
         The UI only reads it, so no copy is made; treat the array as immutable.
         """
         return self._control.last_frame()
+
+    def set_notice(self, callback: Callback) -> None:
+        self._on_notice = callback
+
+    def _announce(self, message: str) -> None:
+        """Tell the user something without stopping."""
+        self._notify(self._on_notice, message)
 
     @staticmethod
     def _notify(callback: Callback, message: str) -> None:
