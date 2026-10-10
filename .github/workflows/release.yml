@@ -10,6 +10,11 @@ on:
 # cho từng lần chạy và hết hạn ngay sau đó — không cần PAT cá nhân nào.
 permissions:
   contents: write
+  # Ba quyền dưới chỉ để ký attestation (xem bước cuối): id-token để xin chứng
+  # chỉ ngắn hạn từ Sigstore, hai quyền còn lại để lưu attestation vào repo.
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   release:
@@ -77,3 +82,15 @@ jobs:
         run: >
           python tools/publish_release.py ${{ steps.version.outputs.number }}
           --from-changelog --upload
+
+      # Chứng nhận file .zip được build bởi chính workflow này, từ đúng commit
+      # của tag. SHA-256 trong manifest chỉ chứng minh file không bị sửa trên
+      # đường tải; attestation chứng minh nó đến từ mã nguồn công khai trong
+      # repo. Ai cũng tự kiểm tra được:
+      #   gh attestation verify OnmyojiTool-3.22.zip -R Long173/onmyoji-auto-releases
+      # Đặt sau bước phát hành: attestation gắn với nội dung file (digest),
+      # không phụ thuộc file đã được tải lên hay chưa.
+      - name: Ký attestation cho bản build
+        uses: actions/attest@v4
+        with:
+          subject-path: onmyoji-auto/dist/release/*.zip
