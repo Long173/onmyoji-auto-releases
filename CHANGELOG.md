@@ -4,6 +4,18 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.26
+
+### Sửa
+
+- **Phá Kết Giới (Guild)**: nút Attack xám (đang cooldown) không bấm nữa mà
+  chờ; kết giới đã bị người khác phá được bỏ qua sau 2 lần bấm thay vì 8.
+- **Ngự hồn**: không còn kẹt ở màn Victory khi có vật trên chiến trường che
+  sau icon (một cửa sổ đứng yên rồi bị văng khỏi đội).
+- Thu nhỏ game khi đang chạy: tác vụ chờ thật, không bấm mãi vào hình cũ.
+
+---
+
 ## 3.25
 
 ### Mới
