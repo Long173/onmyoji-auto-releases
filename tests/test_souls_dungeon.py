@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import threading
 import time
+from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 
 import geometry
 import souls_dungeon
+from game_control import read_image
 from souls_dungeon import SoulsDungeonWorker
 
 REFERENCE = geometry.REFERENCE_CLIENT_SIZE
@@ -534,3 +537,41 @@ def test_an_invite_over_the_result_does_not_count_it_twice(worker, monkeypatch):
     made._step()
 
     assert made.progress == 1
+
+
+# ── a Victory banner with something behind its icons ────────────────────────
+#
+# Reported 2026-10-11 from a two-window run: one window tapped its result, the
+# other sat on Victory for twenty seconds. Its recording showed a teal leaf on
+# the battlefield behind the stats icon, which the template carries, and the
+# match fell to 0.86 under the usual 0.9.
+
+VICTORY_LEAF = Path(__file__).parent / "fixtures" / "souls" / "victory_leaf.png"
+
+
+class FrameControl(StubControl):
+    """Matches the real templates against one saved frame, at the asked threshold."""
+
+    def __init__(self, frame):
+        super().__init__(1)
+        self.frame = frame
+
+    def find(self, template_path, threshold=0.9, region=None, gray=True, delay=0.1):
+        template = read_image(template_path, cv2.IMREAD_GRAYSCALE)
+        if template.shape[0] > self.frame.shape[0] or template.shape[1] > self.frame.shape[1]:
+            return None
+        scores = cv2.matchTemplate(self.frame, template, cv2.TM_CCOEFF_NORMED)
+        _, best, _, (x, y) = cv2.minMaxLoc(scores)
+        return (x, y) if best > threshold else None
+
+
+def test_a_victory_banner_with_a_leaf_behind_it_is_seen():
+    frame = read_image(str(VICTORY_LEAF), cv2.IMREAD_GRAYSCALE)
+    made = SoulsDungeonWorker(hwnd=1, control=FrameControl(frame))
+
+    assert made._result_on_screen(), "sat on Victory without tapping it"
+
+
+def test_the_victory_threshold_stays_clear_of_other_screens():
+    """0.62 was the best score over 2186 saved frames of every other screen."""
+    assert 0.62 + 0.1 <= souls_dungeon.VICTORY_ACCURACY <= 0.86 - 0.1

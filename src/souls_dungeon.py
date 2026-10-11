@@ -49,6 +49,13 @@ TPL_VICTORY = template("SoulsDungeon", "victory.png")
 
 # --- Tuning ----------------------------------------------------------------
 DEFAULT_ACCURACY = 0.9
+# The Victory icons are cut with the battlefield showing between them, and what
+# lies there changes every battle. A player's window on 2026-10-11 had a teal
+# leaf behind the stats icon: 0.86 for the twenty seconds the banner stayed up,
+# so it was never tapped and that window sat out the round. Over 2186 saved
+# frames of every other screen the best score is 0.62, so 0.75 has room on both
+# sides.
+VICTORY_ACCURACY = 0.75
 LOOP_LOG_EVERY = 30
 
 
@@ -236,7 +243,7 @@ class SoulsDungeonWorker(TaskWorker):
     def _result_on_screen(self) -> bool:
         """Whether a battle's end is showing: the Victory banner or the rewards."""
         return (self._find(TPL_TAP_CONTINUE) is not None
-                or self._find(TPL_VICTORY) is not None)
+                or self._find(TPL_VICTORY, VICTORY_ACCURACY) is not None)
 
     def _track_result(self, on_result: bool) -> None:
         """Count a battle on the rising edge of its result screen, once.
