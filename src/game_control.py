@@ -318,6 +318,15 @@ class GameControl:
         return grey
 
     def _grab(self, gray: bool) -> np.ndarray:
+        # A minimised window still answers PrintWindow, with the last frame it
+        # drew. Only a control measured *after* minimising sees the 0x0 client
+        # and fails below; one already running keeps the size it had, so the
+        # capture "works". A live raid did that for half an hour on 2026-10-11:
+        # a frozen board, the same card clicked over and over, nothing happening.
+        # Refused here, every loop waits it out as it does any failed capture.
+        if win32gui.IsIconic(self.hwnd):
+            logger.debug("Window 0x%08x is minimised; not capturing", self.hwnd)
+            raise CaptureError("window is minimised")
         try:
             # The bitmap has to be the size the game actually draws. Sized in
             # screen pixels instead, a virtualised game fills only the top-left

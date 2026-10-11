@@ -86,3 +86,21 @@ def test_the_dashboard_says_it_once(dashboard, monkeypatch):
 
     assert len(said) == 1, "said it %d times" % len(said)
     assert "thu nhỏ" in said[0]
+
+
+def test_a_minimised_window_is_not_captured(monkeypatch):
+    """It would answer with the last frame it drew, which a loop then acts on.
+
+    A raid on 2026-10-11 clicked the same card of a frozen board for half an
+    hour: its control had measured the window before it was minimised, so the
+    0x0 client that makes a fresh capture fail never applied to it.
+    """
+    import game_control
+    from conftest import bare_control
+
+    control = bare_control()
+    monkeypatch.setattr(game_control.win32gui, "IsIconic", lambda hwnd: True)
+    monkeypatch.setattr(control, "_ensure_dc", lambda: pytest.fail("captured anyway"))
+
+    with pytest.raises(game_control.CaptureError):
+        control.full_shot()
