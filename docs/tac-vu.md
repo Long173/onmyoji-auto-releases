@@ -19,7 +19,8 @@ chụp khung hình (PrintWindow)
         ├─ nhận thưởng?       -> click 2 lần, +1 trận
         ├─ sẵn sàng?          -> xác nhận, rồi click slot đã chọn
         ├─ đang đánh?         -> chờ 5s
-        ├─ nút START?         -> click
+        ├─ nút START xám?     -> không bấm: đóng thẻ, chờ cooldown
+        ├─ nút START sáng?    -> click, chờ trận vào
         ├─ chưa vào PKG?      -> mở màn hình PKG
         ├─ thấy địch?         -> click địch, rồi click Tấn công
         ├─ ếch?               -> click, rồi click Tấn công
@@ -32,6 +33,17 @@ chụp khung hình (PrintWindow)
 Nếu cùng một màn hình (START hoặc danh sách địch) khớp liên tiếp
 `STUCK_LIMIT = 10` khung hình, bot coi như có modal vô hình đang nuốt click và
 bấm vào góc trái-trên để đóng nó.
+
+Trên bảng Guild, nút Tấn công **xám** nghĩa là cooldown chưa hết; bấm vào chỉ
+ra popup "Cooldown time is not yet up!". Bot đo độ bão hoà màu của nút (xám ~25,
+sáng ~150, ngưỡng `ATTACK_GREY_SATURATION = 80`) và không bấm nút xám mà đóng
+thẻ, chờ 5s rồi xem lại. Xám liền hơn 10 phút thì bấm thử một lần cho game tự
+trả lời, phòng khi đọc nhầm màu.
+
+Nút **sáng** bấm mà không vào trận nghĩa là kết giới đã bị người khác phá: sau
+`START_REFUSAL_LIMIT = 2` lần bấm (mỗi lần chờ tới 6s cho trận vào) bot gạch thẻ
+đó khỏi danh sách và chuyển mục tiêu khác. Trước khi gạch, bot nhìn lại một lần:
+nút đã biến mất thì là trận chỉ tải chậm, không gạch.
 
 ## Đấu PvP: chỉ bấm công tắc đang **tắt**
 

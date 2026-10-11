@@ -337,6 +337,11 @@ ATTACK_BUTTON_OFFSET: Point = (-54, 199)
 # the popup animation leaves behind.
 ATTACK_BUTTON_TOLERANCE: int = 60
 
+# Half the inside of the Attack button, around its centre: what is measured to
+# tell a lit button from a grey one. Kept inside the frame, which is brown on
+# both. See realm_raid.ATTACK_GREY_SATURATION.
+ATTACK_BUTTON_HALF_SIZE: Point = (40, 12)
+
 RAID_ENTRY_POINT: Point = (248, 584)
 RAID_CLOSE_POINT: Point = (1058, 118)
 

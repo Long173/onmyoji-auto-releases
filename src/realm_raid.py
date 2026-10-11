@@ -15,6 +15,7 @@ import pywintypes
 import win32gui
 
 import cv2
+import numpy as np
 
 import dpi
 import geometry
@@ -101,9 +102,23 @@ STUCK_LIMIT = 10
 # the attack button is on screen, `_handle_start_button` claims the pass, and the
 # branch that reads the counter is never reached.
 #
-# What is never missed is that nothing happened. Eight presses is well past any
-# genuine mis-timing — a real attack is answered on the first or second.
-START_REFUSAL_LIMIT = 8
+# What is never missed is that nothing happened. It was eight presses, fired off
+# a pass apart. Now every press waits ATTACK_HANDOVER_SECONDS for the fight to
+# take over, and a grey button — the guild cooldown — is never pressed at all
+# (see ATTACK_GREY_SATURATION). That leaves one meaning for a lit button that
+# twice starts nothing, and the owner confirmed it: somebody has already broken
+# that barrier, so the loop should move on to another one.
+START_REFUSAL_LIMIT = 2
+# Below this mean saturation the Attack button is drawn grey: the guild board's
+# cooldown is still running, and pressing only brings up "Cooldown time is not
+# yet up!". Measured on a live guild board on 2026-10-11: 25 on the grey button
+# against 152 on the lit one (start.png), so the cut sits well clear of both.
+# Read in colour because start.png still matches the grey button at 0.94 in
+# greyscale.
+ATTACK_GREY_SATURATION = 80
+# How long the button may read grey before it is pressed once anyway. Live
+# guild cooldowns ran from 90 s to five minutes; this is twice the longest.
+GREY_TRUST_SECONDS = 600.0
 LOOP_LOG_EVERY = 20
 
 # Consecutive passes in which no template matched anything, before the loop
@@ -315,6 +330,8 @@ class RealmRaidWorker(TaskWorker):
         # with no Refresh has been struck off. See COOLDOWN_BACKOFF_SECONDS and
         # REFUSAL_AMNESTY_SECONDS.
         self._cooldown_until = 0.0
+        # When the Attack button first read grey in the current run of greys.
+        self._grey_since: Optional[float] = None
         self._all_refused_since: Optional[float] = None
 
     # ---------- lifecycle ----------
@@ -879,7 +896,42 @@ class RealmRaidWorker(TaskWorker):
         what counting them did to a guild board.
         """
         self._start_clicks = 0
+        # Waiting is what the game asked for; it is not being stuck on a card.
+        self._stuck_count = 0
         self._cooldown_until = time.monotonic() + COOLDOWN_BACKOFF_SECONDS
+
+    def _attack_is_grey(self, button: Point) -> bool:
+        """Whether the Attack button at ``button`` is drawn grey.
+
+        Not believed for ever. The threshold was measured on one guild board,
+        and a lit button misread as grey would otherwise be waited on for as
+        long as the task runs. Past GREY_TRUST_SECONDS of nothing but grey it
+        is pressed once anyway, and the game's own answer — a fight, or the
+        cooldown popup — settles it.
+        """
+        half_w, half_h = self._geometry.point(geometry.ATTACK_BUTTON_HALF_SIZE)
+        patch = self._control.part_shot(
+            ((button[0] - half_w, button[1] - half_h),
+             (button[0] + half_w, button[1] + half_h)))
+        if not is_grey(patch):
+            self._grey_since = None
+            return False
+        now = time.monotonic()
+        if self._grey_since is None:
+            self._grey_since = now
+        elif now - self._grey_since >= GREY_TRUST_SECONDS:
+            logger.warning("Attack button has read grey for %.0fs — pressing it "
+                           "once to let the game say why", now - self._grey_since)
+            self._grey_since = None
+            return False
+        return True
+
+    def _wait_out_grey_button(self, button: Point) -> None:
+        """Close the card instead of pressing a button the cooldown has greyed."""
+        logger.info("Attack button at %s is grey — the guild cooldown is still "
+                    "running; closing the card and waiting", button)
+        self._note_cooldown()
+        self._dismiss_popup()
 
     def _forgive_refusals(self) -> bool:
         """Wipe the skip list on a board that has no other way to wipe it.
@@ -970,6 +1022,9 @@ class RealmRaidWorker(TaskWorker):
         # (633, 252)'s button, so the card that was really refusing stayed
         # eligible and was attacked for as long as the task ran.
         self._last_enemy = self._card_on_the_board(self._card_owning(position))
+        if self._attack_is_grey(position):
+            self._wait_out_grey_button(position)
+            return True
         if self._bump_stuck("START"):
             return True
         # Counted separately from _stuck_count, which other handlers reset for
@@ -988,17 +1043,30 @@ class RealmRaidWorker(TaskWorker):
             self._start_clicks += 1
             logger.info("Clicked START at %s — card %s (stuck=%d)",
                         position, self._last_enemy, self._stuck_count)
+            # Judged only once the fight has had its chance to take over, so a
+            # press is never counted as refused while its battle is loading.
+            self._wait_for_battle_to_take_over()
         return True
 
     def _give_up_on_attacking(self) -> bool:
         """The attack button is not working. Close the card and decide why.
 
-        Out of tickets is the ordinary reason and ends the run. Anything else —
-        a cooldown, a barrier somebody else has already broken — is put on a
-        list and skipped from here on, because dismissing the card alone was
+        Out of tickets is the ordinary reason and ends the run. Otherwise it is
+        a barrier somebody else has already broken (a cooldown greys the button,
+        and a grey button is never pressed). That card is put on a list and
+        skipped from here on, because dismissing the card alone was
         never enough: the same card is the board's best match, so the next pass
         opened it again.
         """
+        self._control.invalidate_frame()
+        if self._find(TPL_START) is None:
+            # The button has gone after all: the last press took, its fight was
+            # only slower to load than ATTACK_HANDOVER_SECONDS. Striking the card
+            # off now would lose a live barrier on a board with no Refresh.
+            logger.info("Attack button gone on a fresh look — the fight is "
+                        "loading; not striking %s off", self._last_enemy)
+            self._start_clicks = 0
+            return True
         logger.warning(
             "Pressed attack %d times with no battle — the game is refusing it; "
             "leaving %s alone",
@@ -1286,6 +1354,9 @@ class RealmRaidWorker(TaskWorker):
                 position, self._card_owning(position), opened,
             )
             return
+        if self._attack_is_grey(position):
+            self._wait_out_grey_button(position)
+            return
         if not self._control.click(position):
             # Withheld: the player's cursor is over the game. Nothing was sent,
             # so there is no battle to wait for and nothing to report.
@@ -1316,6 +1387,14 @@ class RealmRaidWorker(TaskWorker):
             "Board still up %.0fs after the attack — carrying on anyway",
             ATTACK_HANDOVER_SECONDS,
         )
+
+
+def is_grey(patch: np.ndarray) -> bool:
+    """Whether a BGR patch of the Attack button is the greyed-out kind."""
+    if patch.size == 0:
+        return False
+    saturation = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)[..., 1].mean()
+    return saturation < ATTACK_GREY_SATURATION
 
 
 def find_game_window(title: str) -> int:

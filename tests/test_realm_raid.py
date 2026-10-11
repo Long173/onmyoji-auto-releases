@@ -8,6 +8,7 @@ from __future__ import annotations
 import inspect
 import threading
 import time
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -17,6 +18,7 @@ import realm_raid
 import task_worker
 import tasks
 from conftest import bare_control
+from game_control import read_image
 from realm_raid import RealmRaidWorker
 
 REFERENCE = geometry.REFERENCE_CLIENT_SIZE
@@ -32,6 +34,10 @@ SETTLE = 0.35
 NEVER = 0.5
 # Long enough for the loop to press the attack button past its refusal limit.
 SOON = 6.0
+# The Attack button's paint (BGR), lit and greyed by the guild cooldown —
+# the means measured on start.png and on the live grey button.
+BUTTON_LIT = (85, 156, 217)
+BUTTON_GREY = (144, 151, 158)
 
 
 class StubControl:
@@ -65,21 +71,31 @@ class StubControl:
         self.frames_begun = 0
         self.frames_ended = 0
         self.invalidations = 0
+        # What the Attack button is painted with: lit unless a test greys it.
+        self.button_colour = BUTTON_LIT
 
     def part_shot(self, region, gray=False):
         """A strip of the screen. Its contents are mostly irrelevant here — the
         reading itself is covered by the ticket_counter tests — but `brightness`
         lets a test say which raid board is showing, which is read from how
-        bright the Guild tab is."""
+        bright the Guild tab is, and `button_colour` what the Attack button
+        looks like."""
         if self.raises is not None:
             raise self.raises
         self.regions_read.append(region)
         (x1, y1), (x2, y2) = region
         shape = (y2 - y1, x2 - x1) if gray else (y2 - y1, x2 - x1, 3)
+        if not gray and self._is_attack_button(((x1 + x2) // 2, (y1 + y2) // 2)):
+            return np.full(shape, self.button_colour, dtype=np.uint8)
         level = self.brightness
         if isinstance(level, dict):
             level = level.get(region, 0)
         return np.full(shape, level, dtype=np.uint8)
+
+    def _is_attack_button(self, centre):
+        buttons = [self.match_point, self.matches.get(realm_raid.TPL_START)]
+        return any(b is not None and abs(b[0] - centre[0]) <= 2
+                   and abs(b[1] - centre[1]) <= 2 for b in buttons)
 
     def describe(self):
         return "stub control"
@@ -310,6 +326,15 @@ def test_presses_that_were_never_sent_are_not_counted_as_refusals(stub_control):
     assert worker._refused == [], "blamed an opponent for the player's mouse"
 
 
+def give_up(worker):
+    """Give up on the open card with its Attack button still on screen — the
+    give-up looks again before striking anything off, and a button that has
+    gone by then means the fight took after all."""
+    worker._control.matches[realm_raid.TPL_START] = (875, 452)
+    worker._give_up_on_attacking()
+    del worker._control.matches[realm_raid.TPL_START]
+
+
 def test_an_opponent_that_refuses_is_left_alone_afterwards(stub_control):
     """Dismissing the card was never enough on its own.
 
@@ -322,7 +347,7 @@ def test_an_opponent_that_refuses_is_left_alone_afterwards(stub_control):
     worker = stub_control(many={realm_raid.TPL_SECTION: [refuses, spare]})
     worker._last_enemy = refuses
 
-    worker._give_up_on_attacking()
+    give_up(worker)
 
     assert worker._pick_enemy() == spare, "went back to the card that refused"
 
@@ -350,7 +375,7 @@ def test_a_withheld_refresh_keeps_the_refused_list(stub_control):
     worker = stub_control(matches={realm_raid.TPL_REFRESH: REFRESH_AT},
                           many={realm_raid.TPL_SECTION: [only]})
     worker._last_enemy = only
-    worker._give_up_on_attacking()
+    give_up(worker)
     worker._control.clicking = False
 
     worker._press_refresh(REFRESH_AT)
@@ -365,7 +390,7 @@ def test_a_re_roll_forgets_which_opponents_refused(stub_control):
     only = (929, 252)
     worker = stub_control(many={realm_raid.TPL_SECTION: [only]})
     worker._last_enemy = only
-    worker._give_up_on_attacking()
+    give_up(worker)
     assert worker._pick_enemy() is None, "the refusal did not take"
 
     worker._press_refresh(REFRESH_AT)
@@ -384,7 +409,7 @@ def test_a_board_where_every_opponent_refused_counts_as_empty(stub_control):
                           many={realm_raid.TPL_SECTION: [only]},
                           auto_refresh=True)
     worker._last_enemy = only
-    worker._give_up_on_attacking()
+    give_up(worker)
     worker._control.clicks.clear()
 
     for _ in range(realm_raid.EMPTY_BOARD_CONFIRMATIONS):
@@ -1518,6 +1543,122 @@ def test_a_board_with_refresh_is_re_rolled_not_forgiven(stub_control, monkeypatc
     worker._refused.append(GUILD_CARD)
 
     assert not worker._forgive_refusals()
+
+
+# ── grey and lit Attack buttons ─────────────────────────────────────────────
+#
+# From the owner, 2026-10-11: on the guild board a grey Attack button means the
+# cooldown has not run out yet, and a lit one that does not start a fight means
+# somebody has already broken that barrier — move on to another. A live run that
+# day pressed the grey button every few seconds for minutes, answered each time
+# by the cooldown popup.
+
+GREY_BUTTON = Path(__file__).parent / "fixtures" / "raid_board" / "attack_grey.png"
+ITS_BUTTON = (GUILD_CARD[0] + geometry.ATTACK_BUTTON_OFFSET[0],
+              GUILD_CARD[1] + geometry.ATTACK_BUTTON_OFFSET[1])
+
+
+def test_the_live_grey_button_reads_as_grey():
+    assert realm_raid.is_grey(read_image(str(GREY_BUTTON)))
+
+
+def test_the_lit_button_does_not_read_as_grey():
+    lit = read_image(realm_raid.TPL_START)
+    assert not realm_raid.is_grey(lit)
+
+
+def test_an_empty_patch_is_not_called_grey():
+    assert not realm_raid.is_grey(np.zeros((0, 0, 3), dtype=np.uint8))
+
+
+def test_a_grey_button_on_an_opened_card_is_not_pressed(stub_control):
+    worker = stub_control(match_score=0.94)
+    worker._control.match_point = ITS_BUTTON
+    worker._control.button_colour = BUTTON_GREY
+
+    worker._click_attack(opened=GUILD_CARD)
+
+    assert ITS_BUTTON not in worker._control.clicks, "pressed a greyed-out Attack"
+    assert worker._control.clicks == [worker._popup_dismiss], "left the card open"
+    assert time.monotonic() < worker._cooldown_until, "did not wait out the cooldown"
+
+
+def test_a_grey_button_left_open_is_not_pressed_or_blamed(stub_control):
+    worker = stub_control(matches={realm_raid.TPL_START: ITS_BUTTON})
+    worker._control.button_colour = BUTTON_GREY
+
+    for _ in range(realm_raid.START_REFUSAL_LIMIT + 3):
+        worker._handle_start_button()
+
+    assert ITS_BUTTON not in worker._control.clicks
+    assert worker._start_clicks == 0
+    assert worker._refused == [], "struck off a barrier that was only cooling down"
+
+
+def test_a_lit_button_that_starts_nothing_moves_on_to_another_barrier(stub_control):
+    other = (929, 252)
+    worker = stub_control(matches={realm_raid.TPL_START: ITS_BUTTON},
+                          many={realm_raid.TPL_SECTION: [GUILD_CARD, other]})
+
+    for _ in range(realm_raid.START_REFUSAL_LIMIT + 1):
+        worker._handle_start_button()
+
+    assert worker._control.clicks.count(ITS_BUTTON) == realm_raid.START_REFUSAL_LIMIT
+    assert worker._has_refused(GUILD_CARD)
+    assert worker._pick_enemy() == other
+
+
+def test_a_fight_slow_to_load_does_not_strike_its_barrier_off(stub_control):
+    """Past the handover wait the button may be gone after all: the press took."""
+    worker = stub_control(many={realm_raid.TPL_SECTION: [GUILD_CARD]})
+    worker._last_enemy = GUILD_CARD
+    worker._start_clicks = realm_raid.START_REFUSAL_LIMIT
+
+    worker._give_up_on_attacking()
+
+    assert not worker._has_refused(GUILD_CARD), "struck off a barrier being fought"
+    assert worker._control.clicks == [], "clicked into a fight that was loading"
+
+
+def test_grey_is_trusted_only_for_so_long(stub_control, monkeypatch):
+    """A lit button misread as grey must not be waited on for ever."""
+    monkeypatch.setattr(realm_raid, "GREY_TRUST_SECONDS", 0.0)
+    worker = stub_control(matches={realm_raid.TPL_START: ITS_BUTTON})
+    worker._control.button_colour = BUTTON_GREY
+
+    worker._handle_start_button()    # first grey: closes the card and waits
+    worker._handle_start_button()    # grey for too long: pressed once anyway
+
+    assert ITS_BUTTON in worker._control.clicks
+
+
+def test_a_lit_button_ends_the_run_of_greys(stub_control):
+    worker = stub_control(matches={realm_raid.TPL_START: ITS_BUTTON})
+    worker._control.button_colour = BUTTON_GREY
+    worker._handle_start_button()
+    assert worker._grey_since is not None
+
+    worker._control.button_colour = BUTTON_LIT
+    worker._handle_start_button()
+
+    assert worker._grey_since is None
+
+
+def test_a_broken_barrier_is_given_up_on_quickly():
+    """It was eight presses; the owner says a lit button that starts nothing
+    is a broken barrier every time."""
+    assert realm_raid.START_REFUSAL_LIMIT <= 2
+
+
+def test_a_lit_press_waits_for_the_fight_before_pressing_again(stub_control, monkeypatch):
+    worker = stub_control(matches={realm_raid.TPL_START: ITS_BUTTON})
+    waits = []
+    monkeypatch.setattr(worker, "_wait_for_battle_to_take_over",
+                        lambda: waits.append(len(worker._control.clicks)))
+
+    worker._handle_start_button()
+
+    assert waits == [1], "pressed again without giving the fight time to load"
 
 
 # ── what to do about a lost battle ──────────────────────────────────────────
