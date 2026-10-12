@@ -661,6 +661,51 @@ def test_a_walk_that_never_finds_the_world_map_goes_back_to_farming(build, raide
     assert any("Could not reach the raid board" in r.message for r in caplog.records)
 
 
+def test_realm_raid_is_pressed_wherever_the_player_put_it(build, raider):
+    """Players reorder the strip. A remembered slot presses another feature."""
+    walk = on_the_way_to_the_board()
+    walk["seen"][exploration.TPL_RAID_ENTRY] = (585, 584)
+    worker = build(raid_relay=True, **walk)
+    worker._tickets = full(True)
+
+    worker._step()
+
+    assert worker.control.clicks[:2] == [
+        geometry.EXPLORATION_BACK_ARROW, (585, 584)
+    ], worker.control.clicks
+    assert raider["ran"] == 1
+
+
+def test_a_world_map_without_realm_raid_on_it_presses_nothing(build, raider, caplog):
+    """Taken off the strip: no guessing at where it used to be."""
+    worker = build(seen={exploration.TPL_EXPLORE: (1005, 550),
+                         exploration.TPL_WORLD_MAP: (1026, 165)},
+                   raid_relay=True)
+    worker._tickets = full(True)
+
+    with caplog.at_level("WARNING"):
+        worker._raid()
+
+    assert worker.control.clicks == [geometry.EXPLORATION_BACK_ARROW]
+    assert raider["ran"] == 0
+    assert any("not on its bottom strip" in r.message for r in caplog.records)
+
+
+def test_a_world_map_without_realm_raid_goes_on_farming_instead(build, raider):
+    """Otherwise every lap walks back to the strip and the map is never farmed."""
+    worker = build(seen={exploration.TPL_EXPLORE: (1005, 550),
+                         exploration.TPL_WORLD_MAP: (1026, 165)},
+                   raid_relay=True)
+    worker._tickets = full(True)
+
+    worker._step()
+    worker.control.clicks.clear()
+    worker._step()
+
+    assert worker._tickets is None, "kept trying to raid"
+    assert worker.control.clicks == [(1005, 550)], "it should enter the chapter"
+
+
 def test_the_raid_holds_still_when_this_worker_is_paused(build, raider):
     """Pause is shared outright, so it reaches whichever loop is running."""
     worker = build(raid_relay=True, **on_the_way_to_the_board())
@@ -803,6 +848,68 @@ def test_the_world_map_is_recognised_by_either_signal(build):
 
     assert by_icon.control.clicks == [geometry.EXPLORATION_CHAPTER_POINT]
     assert by_tabs.control.clicks == [geometry.EXPLORATION_CHAPTER_POINT]
+
+
+# ── the Realm Raid button, on real strips ───────────────────────────────────
+
+# Bottom strips cut from live world maps: icons only, nothing of the player's.
+# The BlueStacks one has a map label drawn behind the button, which sank the
+# first cut of the template to 0.849 and sent the press to a fixed spot.
+STRIPS = Path(__file__).resolve().parent / "fixtures" / "exploration"
+STRIP_TOP = 530             # where the strips were cut, in reference pixels
+SLOTS = {"realm_raid": 209, "area_boss": 545}
+SLOT_WIDTH = 80
+
+
+def strip(name):
+    image = cv2.imdecode(np.fromfile(str(STRIPS / name), np.uint8), cv2.IMREAD_GRAYSCALE)
+    assert image is not None, "unreadable strip %s" % name
+    return image
+
+
+def swapped(image):
+    """The same strip with Realm Raid and Area Boss traded places."""
+    out = image.copy()
+    raid, boss = SLOTS["realm_raid"], SLOTS["area_boss"]
+    out[:, raid:raid + SLOT_WIDTH] = image[:, boss:boss + SLOT_WIDTH]
+    out[:, boss:boss + SLOT_WIDTH] = image[:, raid:raid + SLOT_WIDTH]
+    return out
+
+
+def raid_button(image):
+    tpl = cv2.imdecode(np.fromfile(exploration.TPL_RAID_ENTRY, np.uint8),
+                       cv2.IMREAD_GRAYSCALE)
+    result = cv2.matchTemplate(image, tpl, cv2.TM_CCOEFF_NORMED)
+    _, score, _, where = cv2.minMaxLoc(result)
+    return score, where[0] + tpl.shape[1] // 2
+
+
+@pytest.mark.parametrize("name", ["bar_bluestacks.png", "bar_pc.png"])
+def test_realm_raid_is_found_on_a_live_strip(name):
+    score, x = raid_button(strip(name))
+
+    assert score > exploration.RAID_ENTRY_THRESHOLD, score
+    assert SLOTS["realm_raid"] < x < SLOTS["realm_raid"] + SLOT_WIDTH
+
+
+@pytest.mark.parametrize("name", ["bar_bluestacks.png", "bar_pc.png"])
+def test_realm_raid_is_found_after_the_strip_is_reordered(name):
+    score, x = raid_button(swapped(strip(name)))
+
+    assert score > exploration.RAID_ENTRY_THRESHOLD, score
+    assert SLOTS["area_boss"] < x < SLOTS["area_boss"] + SLOT_WIDTH
+
+
+@pytest.mark.parametrize("name", ["bar_bluestacks.png", "bar_pc.png"])
+def test_a_strip_without_realm_raid_does_not_match_it(name):
+    """The other icons — "Six Realms" among them — must not stand in for it."""
+    image = strip(name)
+    raid = SLOTS["realm_raid"]
+    image[:, raid:raid + SLOT_WIDTH] = 0
+
+    score, _ = raid_button(image)
+
+    assert score < exploration.RAID_ENTRY_THRESHOLD - 0.2, score
 
 
 # ── the templates, against the frames they were measured on ─────────────────

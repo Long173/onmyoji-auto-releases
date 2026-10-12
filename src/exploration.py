@@ -208,11 +208,19 @@ GLOW_MIN_VALUE = 210
 REWARD_THRESHOLD = 0.85
 # The Realm Raid button on the world map's bottom strip. It doubles as the
 # second way of recognising the world map itself, and it is the better of the
-# two: an opaque icon, it scored 0.944-1.000 across three different map
-# backgrounds where `worldMap.png` — a half-transparent tab strip that takes on
-# whatever is behind it — fell to 0.710 over a pale one. Neither is enough
-# alone, so both are consulted; see :meth:`_on_world_map`.
-RAID_ENTRY_THRESHOLD = 0.9
+# two: an opaque icon, where `worldMap.png` — a half-transparent tab strip that
+# takes on whatever is behind it — fell to 0.710 over a pale one. Neither is
+# enough alone, so both are consulted; see :meth:`_on_world_map`.
+#
+# It is the only way to the raid board: players reorder that strip, so there is
+# no fixed place to press. The template is the scroll and the word "Realm" only.
+# The first cut also held "Raid" and the strip around it, and on BlueStacks a
+# map label drawn behind the strip sank it to 0.849 — under the old 0.9, which
+# sent every press to a fixed coordinate. This cut scores 0.916-1.000 on every
+# world map recorded, PC and emulator; nothing else, the strip's other icons
+# included, goes above 0.49. A crossfade between screens reached 0.71, and not
+# pressing during one is right.
+RAID_ENTRY_THRESHOLD = 0.8
 # The Realm Raid board's red X, looked for only around where the board draws it.
 # On real boards — individual, guild, one with a card's popup open — it scored
 # 0.978-0.989 there; over every other screen recorded for this app (the
@@ -347,7 +355,6 @@ class ExplorationWorker(TaskWorker):
             geometry.EXPLORATION_CLAIM_DISMISS_POINT
         )
         self._back_arrow = self._geometry.point(geometry.EXPLORATION_BACK_ARROW)
-        self._raid_entry = self._geometry.point(geometry.RAID_ENTRY_POINT)
         self._raid_close = self._geometry.point(geometry.RAID_CLOSE_POINT)
         self._raid_close_region = self._geometry.region(RAID_BOARD_CLOSE_REGION)
 
@@ -608,18 +615,34 @@ class ExplorationWorker(TaskWorker):
         for _ in range(NAV_ATTEMPTS):
             if self._stop_event.is_set():
                 return False
+            # Only ever where the button was seen. Players reorder the strip,
+            # so a remembered position presses some other feature's button.
             entry = self._control.find(TPL_RAID_ENTRY, RAID_ENTRY_THRESHOLD)
-            if entry is not None or self._on_world_map():
-                # The matched centre when there is one; the measured position
-                # when the world map was recognised by its other signal.
-                self._control.click(entry if entry is not None else self._raid_entry)
+            if entry is not None:
+                self._control.click(entry)
                 self._sleep(NAV_SETTLE_SECONDS)
                 # The button is gone once the board is up, which is the only
                 # confirmation available: the board itself is the raid task's
                 # business, not this one's.
                 return self._control.find(TPL_RAID_ENTRY, RAID_ENTRY_THRESHOLD) is None
             self._sleep(NAV_SETTLE_SECONDS)
+        if self._on_world_map():
+            self._stop_raiding()
         return False
+
+    def _stop_raiding(self) -> None:
+        """The world map is up and Realm Raid is not on its strip: stop trying.
+
+        Players can take it off the strip altogether. Trying again would never
+        farm at all: the world map opens the chapter, the chapter panel reads
+        30/30, and the walk comes straight back here — every lap.
+        """
+        logger.warning(
+            "On the world map but the Realm Raid button is not on its bottom "
+            "strip — raiding is off for the rest of this run; put Realm Raid "
+            "back on the strip to have it raid"
+        )
+        self._tickets = None
 
     def _leave_the_raid_board(self) -> None:
         """Close the board and get back to the world map.
