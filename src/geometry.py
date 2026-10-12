@@ -297,6 +297,9 @@ EXPLORATION_BACK_ARROW: Point = (45, 32)
 # the tab (1.000 against 0.773): same shape, same word, lit differently.
 GUILD_TAB_PATCH: Region = ((1046, 363), (1111, 372))
 INDIVIDUAL_TAB_PATCH: Region = ((1046, 255), (1111, 264))
+# The middle of the Guild tab itself, for "out of tickets, raid the guild".
+# The tab sits on the board's own frame, which nothing on the strip can move.
+GUILD_TAB_POINT: Point = (1078, 378)
 
 # The "N/6" of "Win(s): N/6", bounded clear of both neighbours: the glyphs of
 # "n(s):" end at x=208 and the warning icon starts at x=293, with the digits

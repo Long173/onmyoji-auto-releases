@@ -329,6 +329,7 @@ def merge_layers(app: Dict[str, Any], task: Dict[str, Any]) -> Dict[str, Any]:
 REALM_RAID_FIELDS = (
     Field("auto_refresh", TOGGLE, "Thua thì đổi danh sách đối thủ", default=True),
     Field("stop_when_out_of_tickets", TOGGLE, "Tự dừng khi hết vé", default=True),
+    Field("then_guild", TOGGLE, "Hết vé thì đánh kết giới hội", default=False),
     Field("stop_on_defeat", TOGGLE, "Thua thì dừng", default=False),
     Field("notify_on_defeat", TOGGLE, "Thua thì thông báo", default=False),
     Field("", NOTE, "Nhận diện bằng ảnh mẫu trong screenshots/RealmRaid; toạ độ "
@@ -339,6 +340,10 @@ REALM_RAID_FIELDS = (
                     "kết giới, nên bảng đó sẽ không bao giờ tự đổi. Tác vụ nhận "
                     "ra cả hai đường: bảng kết quả thua ngay sau trận, và dấu "
                     "thua còn lại trên thẻ khi về danh sách."),
+    Field("", NOTE, "\"Hết vé thì đánh kết giới hội\": hết vé cá nhân thì tác "
+                    "vụ bấm sang tab Guild và đánh tiếp ở đó, hết lượt hội mới "
+                    "dừng. Không vào được tab Guild (chưa có hội) thì dừng như "
+                    "thường."),
     Field("", NOTE, "\"Thua thì dừng\": thua một trận là tác vụ đóng bảng thua "
                     "rồi dừng luôn, không tiêu thêm vé. \"Thua thì thông "
                     "báo\": mỗi trận thua hiện một thông báo của Windows, tác "
@@ -360,6 +365,7 @@ def build_realm_raid(hwnd, control, config, on_finished, on_error):
         stop_when_out_of_tickets=bool(config["stop_when_out_of_tickets"]),
         stop_on_defeat=as_bool(config["stop_on_defeat"]),
         notify_on_defeat=as_bool(config["notify_on_defeat"]),
+        then_guild=as_bool(config["then_guild"]),
         accept_wanted_quest=config["wanted_invite"] == ACCEPT,
         accuracy=realm_raid.DEFAULT_ACCURACY,
         control=control,

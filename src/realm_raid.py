@@ -152,6 +152,12 @@ TICKET_ZERO_CONFIRMATIONS = 3
 # failure is as likely to be a click that missed as an empty account.
 TICKET_PROBE_ATTEMPTS = 3
 TICKET_RECHECK_SECONDS = 1.0
+# "Out of tickets, raid the guild": presses on the Guild tab before believing it
+# will not open — the account is in no guild, or the presses keep landing on a
+# popup — and ending the run the ordinary way. Each press is only made after the
+# individual board has been proved empty again, so they are well spaced.
+GUILD_SWITCH_ATTEMPTS = 3
+GUILD_SWITCH_SETTLE_SECONDS = 2.0
 
 # What the counter says, once the board is confirmed to be on screen.
 TICKETS_LEFT = "left"
@@ -267,6 +273,7 @@ class RealmRaidWorker(TaskWorker):
         control: Optional[GameControl] = None,
         stop_on_defeat: bool = False,
         notify_on_defeat: bool = False,
+        then_guild: bool = False,
     ) -> None:
         # A caller running several windows at once shares one GameControl per
         # window with the UI, so the preview and the loop capture through the
@@ -279,6 +286,11 @@ class RealmRaidWorker(TaskWorker):
         self._accept_wanted_quest = accept_wanted_quest
         self._stop_on_defeat = stop_on_defeat
         self._notify_on_defeat = notify_on_defeat
+        # Out of individual tickets: carry on with the guild board instead of
+        # ending. Presses on its tab so far; see GUILD_SWITCH_ATTEMPTS.
+        self._then_guild = then_guild
+        self._guild_presses = 0
+        self._guild_tab_point = self._geometry.point(geometry.GUILD_TAB_POINT)
         self._defeats = 0
         self._last_defeat_at: Optional[float] = None
         # Why the run ended by itself, when it was not the tickets.
@@ -709,6 +721,8 @@ class RealmRaidWorker(TaskWorker):
 
         if self._passes_refused:
             # The game said so itself, which needs no confirming.
+            if self._can_go_to_guild():
+                return self._go_to_guild_board("the game says no passes are left")
             if self._stop_when_out_of_tickets:
                 logger.info("Game says there are no passes left; ending the run")
                 return TICKETS_GONE
@@ -779,6 +793,9 @@ class RealmRaidWorker(TaskWorker):
                     TICKET_PROBE_ATTEMPTS,
                 )
                 return self._begin_probe()
+            if self._can_go_to_guild():
+                return self._go_to_guild_board(
+                    "%d test attacks started no battle" % self._failed_probes)
             if self._stop_when_out_of_tickets:
                 logger.info(
                     "%d test attacks started no battle — out of tickets; "
@@ -802,6 +819,32 @@ class RealmRaidWorker(TaskWorker):
             self._zero_reads,
         )
         return self._begin_probe()
+
+    def _can_go_to_guild(self) -> bool:
+        """Whether an empty individual board should hand over to the guild one."""
+        return (self._then_guild
+                and self._guild_presses < GUILD_SWITCH_ATTEMPTS
+                and not self._on_guild_board())
+
+    def _go_to_guild_board(self, reason: str) -> str:
+        """Open the Guild tab and carry on there. Judged again on the next pass.
+
+        Everything learnt about the individual board is dropped with it: the
+        cards struck off and a re-roll owed belong to a list that is no longer
+        on screen, and the guild board has no Refresh to pay the re-roll with.
+        """
+        self._guild_presses += 1
+        logger.info(
+            "Out of tickets (%s) — moving on to the guild board (press %d/%d)",
+            reason, self._guild_presses, GUILD_SWITCH_ATTEMPTS,
+        )
+        self._reset_ticket_doubt()
+        self._refused.clear()
+        self._last_enemy = None
+        self._refresh_pending = False
+        self._control.click(self._guild_tab_point)
+        self._sleep(GUILD_SWITCH_SETTLE_SECONDS)
+        return TICKETS_PENDING
 
     def _begin_probe(self) -> str:
         """Attack once and let the next pass judge what came of it."""
@@ -1076,7 +1119,11 @@ class RealmRaidWorker(TaskWorker):
         if self._last_enemy is not None and not self._has_refused(self._last_enemy):
             self._refused.append(self._last_enemy)
         self._dismiss_popup()
-        if self._stop_when_out_of_tickets and self._tickets_exhausted():
+        if not self._tickets_exhausted():
+            return True
+        if self._can_go_to_guild():
+            self._go_to_guild_board("counter reads zero and the attack is refused")
+        elif self._stop_when_out_of_tickets:
             logger.info("Counter reads zero and the attack is refused — run over")
             self._finish_now = True
         return True

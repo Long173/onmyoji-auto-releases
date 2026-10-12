@@ -188,6 +188,7 @@ def stub_control(monkeypatch):
         ("REWARD_CLICK_GAP_SECONDS", 0.01),
         ("RESIZE_SETTLE_SECONDS", 0.0),
         ("AMNESTY_POLL_SECONDS", 0.01),
+        ("GUILD_SWITCH_SETTLE_SECONDS", 0.01),
     ):
         monkeypatch.setattr(realm_raid, name, value)
 
@@ -991,6 +992,109 @@ def test_each_board_has_its_own_counter_read(stub_control):
 
     assert on_individual._ticket_region in on_individual._control.regions_read
     assert on_individual._guild_attempts not in on_individual._control.regions_read
+
+
+# ── out of tickets: on to the guild board ───────────────────────────────────
+
+INDIVIDUAL = tabs(79, 136)
+GUILD = tabs(143, 82)
+
+
+def out_of_tickets(stub_control, board, **kwargs):
+    """A board on screen with its counter at zero and the game refusing passes."""
+    worker = stub_control(matches={realm_raid.TPL_SECTION: ENEMY_AT},
+                          brightness=board, tickets_zero=True, **kwargs)
+    worker._passes_refused = True
+    return worker
+
+
+def test_out_of_tickets_moves_on_to_the_guild_board(stub_control):
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True)
+
+    verdict = worker._ticket_verdict()
+
+    assert verdict == realm_raid.TICKETS_PENDING, "ended instead of moving on"
+    assert worker._control.clicks == [geometry.GUILD_TAB_POINT]
+
+
+def test_without_the_option_out_of_tickets_still_ends_the_run(stub_control):
+    worker = out_of_tickets(stub_control, INDIVIDUAL)
+
+    assert worker._ticket_verdict() == realm_raid.TICKETS_GONE
+    assert worker._control.clicks == []
+
+
+def test_the_guild_board_running_out_ends_the_run(stub_control):
+    """Both spent: nowhere left to go, so the option changes nothing here."""
+    worker = out_of_tickets(stub_control, GUILD, then_guild=True)
+    worker._passes_refused = False
+    for _ in range(realm_raid.TICKET_ZERO_CONFIRMATIONS - 1):
+        worker._ticket_verdict()
+
+    assert worker._ticket_verdict() == realm_raid.TICKETS_GONE
+    assert geometry.GUILD_TAB_POINT not in worker._control.clicks
+
+
+def test_failed_test_attacks_move_on_to_the_guild_board(stub_control):
+    """The other way the individual board says it is empty."""
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True)
+    worker._passes_refused = False
+    worker._probing = True
+    worker._failed_probes = realm_raid.TICKET_PROBE_ATTEMPTS - 1
+    worker._zero_reads = realm_raid.TICKET_ZERO_CONFIRMATIONS - 1
+
+    assert worker._ticket_verdict() == realm_raid.TICKETS_PENDING
+    assert worker._control.clicks == [geometry.GUILD_TAB_POINT]
+
+
+def test_a_refused_attack_at_zero_moves_on_instead_of_finishing(stub_control):
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True)
+    worker._passes_refused = False
+    worker._control.matches[realm_raid.TPL_START] = (579, 388)
+
+    worker._give_up_on_attacking()
+
+    assert not worker._finish_now, "ended the run with the guild board untried"
+    assert geometry.GUILD_TAB_POINT in worker._control.clicks
+
+
+def test_the_guild_board_starts_with_a_clean_slate(stub_control):
+    """Cards struck off on the individual board say nothing about the guild's."""
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True)
+    worker._refused.append((633, 189))
+    worker._last_enemy = (633, 189)
+    worker._refresh_pending = True
+
+    worker._ticket_verdict()
+
+    assert worker._refused == []
+    assert worker._last_enemy is None
+    assert not worker._refresh_pending
+
+
+def test_a_guild_tab_that_never_opens_is_given_up_on(stub_control):
+    """Not in a guild, or the press keeps missing: the run still has to end."""
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True)
+
+    verdicts = []
+    for _ in range(realm_raid.GUILD_SWITCH_ATTEMPTS + 1):
+        worker._passes_refused = True
+        verdicts.append(worker._ticket_verdict())
+
+    assert verdicts[-1] == realm_raid.TICKETS_GONE
+    assert worker._control.clicks.count(geometry.GUILD_TAB_POINT) == \
+        realm_raid.GUILD_SWITCH_ATTEMPTS
+
+
+def test_the_option_is_on_the_task_page_and_reaches_the_worker(monkeypatch):
+    monkeypatch.setattr(task_worker, "GameControl", lambda hwnd: StubControl(hwnd))
+    assert "then_guild" in {f.key for f in tasks.REALM_RAID_FIELDS}
+
+    config = {f.key: f.default for f in tasks.REALM_RAID_FIELDS if f.key}
+    config.update(wanted_invite=tasks.REFUSE, then_guild=True)
+    worker = tasks.build_realm_raid(1, None, config, None, None)
+
+    assert worker._then_guild is True
 
 
 def test_a_single_zero_reading_does_not_end_the_run(stub_control):

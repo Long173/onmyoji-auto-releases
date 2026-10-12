@@ -13,7 +13,8 @@ handler nào khớp template trước thì xử lý và kết thúc vòng đó.
 ```
 chụp khung hình (PrintWindow)
         │
-        ├─ hết vé?            -> dừng, báo hoàn thành
+        ├─ hết vé?            -> bật "hết vé thì đánh hội": sang tab Guild
+        │                        còn lại (hoặc hết cả lượt hội): dừng, báo xong
         ├─ có lời mời truy?   -> bấm Từ chối (hoặc Chấp nhận)
         ├─ popup cooldown?    -> đóng popup, tìm mục tiêu khác
         ├─ nhận thưởng?       -> click 2 lần, +1 trận
@@ -39,6 +40,13 @@ ra popup "Cooldown time is not yet up!". Bot đo độ bão hoà màu của nút
 sáng ~150, ngưỡng `ATTACK_GREY_SATURATION = 80`) và không bấm nút xám mà đóng
 thẻ, chờ 5s rồi xem lại. Xám liền hơn 10 phút thì bấm thử một lần cho game tự
 trả lời, phòng khi đọc nhầm màu.
+
+"Hết vé thì đánh kết giới hội": khi bảng cá nhân được xác nhận hết vé (game báo
+không đủ vé, hoặc 3 lần bấm thử không vào trận) bot bấm tab Guild
+(`geometry.GUILD_TAB_POINT`) thay vì dừng. Danh sách thẻ đã gạch và lệnh refresh
+đang chờ đều bỏ, vì chúng thuộc bảng cũ. Bấm `GUILD_SWITCH_ATTEMPTS = 3` lần mà
+bảng vẫn là bảng cá nhân (chưa vào hội) thì dừng như thường. Hết lượt hội thì
+dừng theo "Tự dừng khi hết vé".
 
 Nút **sáng** bấm mà không vào trận nghĩa là kết giới đã bị người khác phá: sau
 `START_REFUSAL_LIMIT = 2` lần bấm (mỗi lần chờ tới 6s cho trận vào) bot gạch thẻ
