@@ -4,6 +4,20 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.27
+
+### Mới
+
+- **Phá Kết Giới**: tuỳ chọn "Hết vé thì đánh kết giới hội" — hết vé cá nhân
+  thì tự sang tab Guild đánh tiếp.
+
+### Sửa
+
+- **Thám hiểm chương**: tìm nút Phá Kết Giới bằng hình nên vẫn đúng khi đã đổi
+  thứ tự thanh icon; trước đây trên giả lập có thể bấm nhầm nút khác.
+
+---
+
 ## 3.26
 
 ### Sửa
