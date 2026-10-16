@@ -4,6 +4,15 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.28
+
+### Sửa
+
+- **Thám hiểm chương**: nhận ra boss ở mọi chương; trước đây ở một số chương
+  tool đánh hết ổ quái rồi cứ kéo bản đồ mà không đánh boss.
+
+---
+
 ## 3.27
 
 ### Mới
