@@ -35,7 +35,7 @@ before being kept, best-elsewhere in brackets:
     tapContinue.png  12 frames at 0.93-1.00   (median 0.311)
     worldMap.png      5 frames at 0.90-1.00   (next best 0.453)
     bossFound.png     2 frames at 1.00        (median 0.587)
-    boss.png          2 frames at 0.88-0.92   (next best 0.564)
+    boss.png          see below — re-cut since this table was measured
     mapReward.png     2 frames at 0.86-0.97   (median 0.612)
     claimReward.png   absent from all 77       (best 0.400)
 
@@ -54,10 +54,22 @@ throughout, so it is finding the right thing and simply disagreeing with it. The
 extra artwork is the difference, not the size, and a second template is the
 honest answer.
 
-`boss.png` was cut from a live capture of Chapter 28, and Chapter 28 is the only
-place it has been measured. If another chapter's boss carries different artwork
-this is where it will show up: the nests all clear and then nothing happens,
-with the stall warning below in the log.
+`boss.png` is the **inside of the disc only**, 48 px, with none of the map
+around it. The first cut, from a live capture of Chapter 28, was the whole 69 px
+square — and a square round a circle carries four corners of whatever map the
+badge stands on. On 3.27 a player fought six nests and then swept for minutes,
+logging only "Reached the edge of the map", beside a boss on a bamboo-forest
+map: the old cut found it in the right place on every frame of their recording
+and scored **0.735-0.751**. Comparing the two badges themselves, the whole
+squares agreed 0.746 and their insides 0.952. Same artwork; the corners were the
+difference.
+
+Cut to the core, measured over that recording, the Chapter 28 frames and every
+other frame and fixture on hand: the boss scores 0.903-0.969 wherever it
+appears, on four different maps, and nothing else reaches 0.654 — plain nests
+included. `red_sword.png`, filed for a long time as an older chapter's nest, is
+this same boss badge and scores 0.968; it is the earlier sighting of this bug,
+and nobody saw it because that recording never reached the boss.
 
 `onMap.png` is the words "Auto Rotation" in the bottom-left corner, and it is
 the one that makes the rest safe: it matched 17 frames — the map, with and
@@ -175,21 +187,24 @@ THRESHOLD = 0.9
 # — a lossy screen recording, so a live capture should do better.
 MAP_SCALES = (1.0, 0.94, 0.88, 0.82)
 WORLD_MAP_THRESHOLD = 0.85
-# The boss badge scored 0.884 and 0.923 on the two recorded frames it appears in
-# and 1.000 on the live capture it was cut from, against 0.564 for the best frame
-# it is absent from. 0.85 sits in the middle of that gap.
-BOSS_THRESHOLD = 0.85
+# The disc core scores 0.903-0.969 on every frame the boss is in — all of them
+# lossy recordings, so live should do better — against 0.654 for the best of
+# about 2,000 frames and fixtures it is absent from. 0.8 sits in that gap, a
+# little nearer the top, because another chapter's rendering is the likelier
+# surprise than something new that looks like the boss.
+BOSS_THRESHOLD = 0.8
 # Glowing nests: a bright gold arc sweeps round the rim of some badges, and the
 # player wants those fought before anything else. See `glow_sectors`.
 #
 # GLOW_FLOOR is the nest match a glowing badge has to clear first. The plain
 # template covers only the 48px core, which the arc partly washes out: glowing
 # badges scored 0.77-0.90 on a live map against 0.98-1.00 for plain ones. The
-# red-sword nest of an older chapter, which has gold trim and no glow, scored
-# 0.65 — so 0.72 keeps it out while letting every glowing badge in.
+# boss badge in `red_sword.png` (long taken for an older chapter's nest), which
+# has gold trim and no glow, scored 0.65 — so 0.72 keeps it out while letting
+# every glowing badge in.
 GLOW_FLOOR = 0.72
 # How much of the rim the arc must cover, in slices of GLOW_SLICES. Measured:
-# plain 1-8, glowing 14-19 across one sweep of the arc, red-sword 12.
+# plain 1-8, glowing 14-19 across one sweep of the arc, the red-sword boss 12.
 GLOW_SLICES = 24
 GLOW_SECTORS = 13
 # The rim band the arc runs in, in reference pixels from the badge centre. The
@@ -288,8 +303,7 @@ def glow_sectors(frame: np.ndarray, centre: Tuple[int, int],
     a ring: it is a comet-shaped arc sweeping round the badge, at a different
     angle every frame. Two measures that ignored that were tried first and
     failed. Rim brightness separated the live map cleanly, 77 against 145, and
-    then read 115-121 on an older chapter's red-sword nest that does not glow
-    at all. A template of a glowing badge scored its own kind 0.13-0.64,
+    then read 115-121 on a red-sword boss badge that does not glow at all. A template of a glowing badge scored its own kind 0.13-0.64,
     because the arc it was cut with had moved on.
 
     How much of the rim the arc covers survives the rotation: 14-19 of 24

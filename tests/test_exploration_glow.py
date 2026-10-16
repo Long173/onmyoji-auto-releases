@@ -56,7 +56,7 @@ def test_a_plain_nest_is_not_taken_for_a_glowing_one(name):
     assert not exploration.is_glowing(crop(name), CENTRE), name
 
 
-def test_the_red_sword_nest_is_not_taken_for_a_glowing_one():
+def test_the_red_sword_boss_is_not_taken_for_a_glowing_nest():
     """The case that sank the brightness test: bright gold trim, no glow."""
     assert not exploration.is_glowing(crop("red_sword.png"), CENTRE)
 

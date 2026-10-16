@@ -115,6 +115,56 @@ def test_the_loop_looks_at_every_size(monkeypatch):
     assert looked[exploration.TPL_MAP_REWARD] == exploration.MAP_SCALES
 
 
+# ── the boss on any map ─────────────────────────────────────────────────────
+#
+# Reported on 3.27: six nests fought, then minutes of "Reached the edge of the
+# map" beside a boss the loop could not see, on a bamboo-forest map. The
+# template was then a 69 px square, four corners of it Chapter 28's map, and it
+# found the badge in the right place at 0.735-0.751. Cut down to the inside of
+# the disc it reads the boss wherever it stands. Each crop below is the badge on
+# a different map; boss_bamboo is one frame of that player's recording.
+
+FIXTURES = Path(__file__).parent / "fixtures" / "exploration"
+ANY_ORIGIN = (90, 180)
+# red_sword.png was cut for the glow tests, centred on where the nest template
+# landed; the boss disc itself sits up and left of the crop's middle, at (35, 29).
+BOSSES = (("boss_bamboo.png", (180, 258)), ("red_sword.png", (125, 209)))
+NOT_A_BOSS = ("plain_1.png", "plain_2.png", "plain_3.png", "glowing_1.png",
+              "glowing_4.png", "glowing_6.png")
+
+
+def fixture(name: str) -> np.ndarray:
+    image = cv2.imdecode(np.fromfile(str(FIXTURES / name), np.uint8), cv2.IMREAD_COLOR)
+    assert image is not None, name
+    return image
+
+
+@pytest.mark.parametrize("name,centre", BOSSES)
+def test_the_boss_is_found_whatever_map_it_stands_on(name, centre):
+    control = control_showing_at(fixture(name), ANY_ORIGIN)
+    point = control.find(exploration.TPL_BOSS, exploration.BOSS_THRESHOLD,
+                         delay=0, scales=exploration.MAP_SCALES)
+    assert near(point, centre), point
+
+
+def test_the_boss_template_holds_no_map():
+    """The bug as it was: a square round the disc carried the map's corners."""
+    template = cv2.imdecode(np.fromfile(exploration.TPL_BOSS, np.uint8),
+                            cv2.IMREAD_GRAYSCALE)
+    disc_radius = 36   # reference px; see GLOW_RING
+    half_diagonal = (template.shape[0] ** 2 + template.shape[1] ** 2) ** 0.5 / 2
+    assert half_diagonal <= disc_radius, template.shape
+
+
+@pytest.mark.parametrize("name", NOT_A_BOSS)
+def test_a_nest_is_not_taken_for_the_boss(name):
+    """A nest read as the boss would be fought first, ahead of the real one."""
+    control = control_showing_at(fixture(name), ANY_ORIGIN)
+    score, _ = control.match(exploration.TPL_BOSS, delay=0,
+                             scales=exploration.MAP_SCALES)
+    assert score < exploration.BOSS_THRESHOLD - 0.1, score
+
+
 # ── the reward the boss leaves behind ───────────────────────────────────────
 #
 # Reported from the same zoomed-out game on 3.22: the boss fell, two chests were
