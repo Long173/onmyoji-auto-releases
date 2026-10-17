@@ -511,6 +511,29 @@ def test_the_shift_is_measured_in_pixels():
     assert exploration.ExplorationWorker._shift(before, before) < 1.0
 
 
+PARALLAX = Path(__file__).parent / "fixtures" / "exploration"
+
+
+def test_a_drag_across_a_parallax_map_counts_as_movement():
+    """Reported on 3.28: the view rocked over one stretch and never swept on.
+
+    Two captures of the compared patch, 1.3 s apart across one drag, from the
+    player's recording. The far layer barely moves and the ground is flat, so
+    without a window the patch's own borders won the correlation and this read
+    0.1 px — an edge, every time.
+    """
+    def read(name):
+        image = cv2.imdecode(np.fromfile(str(PARALLAX / name), np.uint8),
+                             cv2.IMREAD_GRAYSCALE)
+        assert image is not None, name
+        return image
+
+    before, after = read("parallax_before.png"), read("parallax_after.png")
+
+    assert exploration.ExplorationWorker._shift(before, after) >= exploration.MOVED_PIXELS
+    assert exploration.ExplorationWorker._shift(before, before) < 1.0
+
+
 # ── the points ──────────────────────────────────────────────────────────────
 
 

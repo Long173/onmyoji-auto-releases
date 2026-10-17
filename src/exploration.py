@@ -868,13 +868,26 @@ class ExplorationWorker(TaskWorker):
         almost entirely, so they differ by very little pixel for pixel even when
         the view has plainly moved, and a threshold on that difference would sit
         somewhere arbitrary. The correlation answers with the shift itself.
+
+        Through a Hanning window, which is not a refinement. Without one the
+        patch's own borders — a hard edge all the way round, identical in both
+        captures — correlate at zero shift, and on a map that gives the eye
+        little else to hold that peak wins. A player on 3.28 had a chapter whose
+        far layer barely moves with the drag and whose foreground is flat
+        ground: drags that carried the view 110-176 px read 0.0-0.5, every sweep
+        was taken for an edge, and the view rocked back and forth over one
+        stretch of map without ever reaching the rest. Windowed, the same drags
+        read 198 px and up while still pairs stay under 1. On the original
+        lap the two agree on every drag; they part only on screen changes —
+        a battle coming in — where the window says "moved", the true answer.
         """
         if before.shape != after.shape:
             # A resize mid-drag. Treat it as movement so the sweep does not
             # conclude it has hit an edge on the strength of a bad comparison.
             return float("inf")
+        window = cv2.createHanningWindow(before.shape[::-1], cv2.CV_32F)
         (dx, _dy), _response = cv2.phaseCorrelate(
-            np.float32(before), np.float32(after)
+            np.float32(before), np.float32(after), window
         )
         return abs(dx)
 
