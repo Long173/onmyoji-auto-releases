@@ -1017,6 +1017,27 @@ def test_out_of_tickets_moves_on_to_the_guild_board(stub_control):
     assert worker._control.clicks == [geometry.GUILD_TAB_POINT]
 
 
+def test_an_enemy_card_left_open_is_closed_before_the_guild_tab(stub_control):
+    """The refused card stays up and dims the board; pressed through, the tab
+    press only closes it. Live, that cost all three presses."""
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True,
+                            match_score=0.9)
+
+    worker._ticket_verdict()
+
+    assert worker._control.clicks == [geometry.POPUP_DISMISS_POINT,
+                                      geometry.GUILD_TAB_POINT]
+
+
+def test_a_tab_press_that_did_not_take_says_so(stub_control, caplog):
+    worker = out_of_tickets(stub_control, INDIVIDUAL, then_guild=True)
+
+    with caplog.at_level("WARNING"):
+        worker._ticket_verdict()
+
+    assert "still up" in caplog.text
+
+
 def test_without_the_option_out_of_tickets_still_ends_the_run(stub_control):
     worker = out_of_tickets(stub_control, INDIVIDUAL)
 

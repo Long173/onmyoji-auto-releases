@@ -842,9 +842,32 @@ class RealmRaidWorker(TaskWorker):
         self._refused.clear()
         self._last_enemy = None
         self._refresh_pending = False
+        self._close_open_card()
         self._control.click(self._guild_tab_point)
         self._sleep(GUILD_SWITCH_SETTLE_SECONDS)
+        self._control.invalidate_frame()
+        if self._on_guild_board():
+            logger.info("On the guild board")
+        else:
+            logger.warning("Pressed the Guild tab and the individual board is "
+                           "still up (press %d/%d)",
+                           self._guild_presses, GUILD_SWITCH_ATTEMPTS)
         return TICKETS_PENDING
+
+    def _close_open_card(self) -> None:
+        """Shut an enemy card still open over the board, if there is one.
+
+        The game leaves the card up for some five seconds after refusing an
+        attack for want of passes, and it dims the board behind it: a press on
+        the Guild tab then only closes the card. Measured on a live run, all
+        three presses went that way and the loop went back to test-attacking
+        the individual board for as long as it was left running. Whether a card
+        is open is the Attack button being on screen, read against the same
+        floor `_click_attack` uses to tell a card from the bare board.
+        """
+        score, _ = self._control.match(TPL_START)
+        if score >= ATTACK_FLOOR:
+            self._dismiss_popup()
 
     def _begin_probe(self) -> str:
         """Attack once and let the next pass judge what came of it."""
