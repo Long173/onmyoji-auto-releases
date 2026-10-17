@@ -4,6 +4,17 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.29
+
+### Sửa
+
+- **Thám hiểm chương**: kéo hết bản đồ; trước đây ở một số chương tool chỉ
+  kéo qua lại một đoạn.
+- **Phá Kết Giới**: "Hết vé thì đánh kết giới hội" giờ chuyển được sang tab
+  Guild; trước đây có lúc cứ đánh thử bảng cá nhân mãi.
+
+---
+
 ## 3.28
 
 ### Sửa
