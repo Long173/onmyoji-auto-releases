@@ -16,7 +16,7 @@ YOUTUBE = re.compile(r"^https://youtu\.be/[\w-]{11}$")
 
 # Built, but the tutorial has not been recorded yet. Taking a task off this list
 # is what the test below then asks for.
-AWAITING_VIDEO: set = set()
+AWAITING_VIDEO: set = {"sequence"}
 
 
 def test_every_built_task_has_a_tutorial():

@@ -4,6 +4,17 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## Chưa phát hành
+
+### Mới
+
+- **Nhấn theo chuỗi**: tác vụ mới — chọn nhiều điểm trên ảnh chụp game, mỗi
+  điểm một thời gian chờ riêng, tool nhấn lần lượt rồi lặp lại theo số vòng
+  (hoặc chạy vĩnh viễn). Như Event, tác vụ này không đọc màn hình ngoài lời
+  mời truy.
+
+---
+
 ## 3.29
 
 ### Sửa

@@ -88,6 +88,8 @@ class FieldForm(QtWidgets.QWidget):
             return self._hotkey(field, values)
         if field.kind == tasks.POINT:
             return self._point(field, values)
+        if field.kind == tasks.POINT_LIST:
+            return self._point_list(field, values)
         return None
 
     def _hotkey(self, field: tasks.Field, values: Mapping[str, Any]) -> QtWidgets.QWidget:
@@ -181,6 +183,198 @@ class FieldForm(QtWidgets.QWidget):
         if hint is not None:
             block.addWidget(hint)
         holder.setLayout(block)
+        return holder
+
+    def _point_list(self, field: tasks.Field, values: Mapping[str, Any]) -> QtWidgets.QWidget:
+        """Click positions in order, each with its own wait after it.
+
+        Every point is chosen the way a single POINT is — on a screenshot of the
+        game, through the same picker — and never typed, for the same reason:
+        a coordinate nobody can check silently clicks the wrong thing. The wait
+        belongs to the step, not the list, because a press that opens a new
+        screen needs longer before the next one than a press that only ticks a
+        box.
+
+        The value travels as the stored text (:func:`tasks.steps_text`), so what
+        the task page emits is exactly what the settings file will hold.
+        """
+        steps = list(tasks.as_steps(values.get(field.key, field.default)))
+        low, high = tasks.STEP_WAIT_RANGE
+        width, height = geometry.REFERENCE_CLIENT_SIZE
+        centre = (width // 2, height // 2)
+
+        holder = QtWidgets.QWidget()
+        block = vbox(8)
+        # Attached now rather than at the end, as the other fields do: refresh()
+        # below shows and hides children, and showing a widget that has no
+        # parent yet opens it as a window of its own.
+        holder.setLayout(block)
+        # Never taller than its contents. The list's height is set by hand as
+        # steps come and go, and spare room in the column would otherwise open
+        # up as gaps between the label, the list and the buttons.
+        holder.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        block.addWidget(label(field.label, theme.body(13), theme.TEXT_MUTED))
+
+        listing = QtWidgets.QListWidget()
+        listing.setObjectName("pointList")
+        listing.setFont(theme.tabular(13))
+        listing.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        listing.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
+        listing.setStyleSheet(
+            "QListWidget { background: %s; border: 1px solid %s; border-radius: %dpx;"
+            " color: %s; padding: 4px; outline: 0; }"
+            "QListWidget::item { padding: 5px 8px; border-radius: %dpx; }"
+            "QListWidget::item:selected { background: %s; color: %s; }"
+            % (theme.INSET, theme.CONTROL, theme.RADIUS, theme.TEXT,
+               theme.RADIUS_SMALL, theme.ACCENT_FILL, theme.TEXT)
+        )
+        block.addWidget(listing)
+
+        empty = body_text("Chưa có điểm nào. Bấm “Thêm điểm” rồi nhấn lên ảnh "
+                          "chụp cửa sổ game.", 12.5, theme.TEXT_LABEL)
+        block.addWidget(empty)
+
+        wait_row = hbox(9)
+        wait_row.addWidget(label("Chờ sau điểm này", theme.body(13),
+                                 theme.TEXT_MUTED))
+        wait = QtWidgets.QDoubleSpinBox()
+        wait.setRange(low, high)
+        wait.setDecimals(1)
+        wait.setSingleStep(0.5)
+        wait.setSuffix(" giây")
+        wait.setFont(theme.body(13))
+        wait.setFixedHeight(34)
+        wait.setStyleSheet(
+            "QDoubleSpinBox { background: %s; border: 1px solid %s; border-radius: %dpx;"
+            " padding: 0 8px; color: %s; }"
+            "QDoubleSpinBox:focus { border-color: %s; }"
+            % (theme.INSET, theme.CONTROL, theme.RADIUS, theme.TEXT, theme.ACCENT)
+        )
+        wait_row.addWidget(wait)
+        wait_row.addStretch(1)
+        block.addLayout(wait_row)
+
+        # Two fixed rows, not a FlowLayout: a wrapping layout reports the height
+        # it would need at its narrowest, and the column hands that slack out as
+        # gaps around the list. Five buttons in one row are wider than the
+        # config panel, which then clips every note below it on the right.
+        add = controls.OutlineButton("Thêm điểm", padding="8px 14px")
+        repick = controls.OutlineButton("Chọn lại", padding="8px 12px")
+        remove = controls.OutlineButton("Xoá", padding="8px 12px")
+        up = controls.OutlineButton("Lên", padding="8px 12px")
+        down = controls.OutlineButton("Xuống", padding="8px 12px")
+        for row_buttons in ((add, repick, remove), (up, down)):
+            row = hbox(6)
+            for button in row_buttons:
+                row.addWidget(button)
+            row.addStretch(1)
+            block.addLayout(row)
+
+        def selected() -> int:
+            row = listing.currentRow()
+            return row if 0 <= row < len(steps) else -1
+
+        def refresh(select: int = -1) -> None:
+            blocked = listing.blockSignals(True)
+            listing.clear()
+            for number, (x, y, seconds) in enumerate(steps, 1):
+                listing.addItem("%2d.  %4d, %-4d  ·  %.1f giây" % (number, x, y, seconds))
+            if steps:
+                listing.setCurrentRow(max(0, min(select, len(steps) - 1)))
+            listing.blockSignals(blocked)
+            # Tall enough to show every step without an inner scrollbar, up to a
+            # point; past that the list scrolls rather than pushing the page.
+            rows = max(1, min(len(steps), 8))
+            listing.setFixedHeight(12 + rows * (listing.fontMetrics().height() + 12))
+            listing.setVisible(bool(steps))
+            empty.setVisible(not steps)
+            sync()
+
+        def sync() -> None:
+            """Buttons and the wait box follow the selected step."""
+            row = selected()
+            has = row >= 0
+            add.setEnabled(len(steps) < tasks.MAX_STEPS)
+            repick.setEnabled(has)
+            remove.setEnabled(has)
+            up.setEnabled(has and row > 0)
+            down.setEnabled(has and row < len(steps) - 1)
+            wait.setEnabled(has)
+            blocked = wait.blockSignals(True)
+            wait.setValue(steps[row][2] if has else tasks.STEP_WAIT_DEFAULT)
+            wait.blockSignals(blocked)
+
+        def commit(select: int) -> None:
+            refresh(select)
+            self.changed.emit(field.key, tasks.steps_text(steps))
+
+        def pick(start, title):
+            from ui.point_picker import choose_point
+
+            return choose_point(start, self._capture, start, self, title=title)
+
+        def on_add() -> None:
+            if len(steps) >= tasks.MAX_STEPS:
+                return
+            row = selected()
+            start = tuple(steps[row][:2]) if row >= 0 else centre
+            chosen = pick(start, "Thêm điểm %d" % (len(steps) + 1))
+            if chosen is None:
+                return
+            # A new step inherits the wait of the one it follows: sequences tend
+            # to be several presses on one screen at one pace.
+            seconds = steps[-1][2] if steps else tasks.STEP_WAIT_DEFAULT
+            steps.append((int(chosen[0]), int(chosen[1]), seconds))
+            commit(len(steps) - 1)
+
+        def on_repick() -> None:
+            row = selected()
+            if row < 0:
+                return
+            chosen = pick(tuple(steps[row][:2]), "Chọn lại điểm %d" % (row + 1))
+            if chosen is None or tuple(chosen) == tuple(steps[row][:2]):
+                return
+            steps[row] = (int(chosen[0]), int(chosen[1]), steps[row][2])
+            commit(row)
+
+        def on_move(delta: int) -> None:
+            row = selected()
+            target = row + delta
+            if row < 0 or not 0 <= target < len(steps):
+                return
+            steps[row], steps[target] = steps[target], steps[row]
+            commit(target)
+
+        def on_remove() -> None:
+            row = selected()
+            if row < 0:
+                return
+            del steps[row]
+            commit(row)
+
+        def on_wait(value: float) -> None:
+            row = selected()
+            if row < 0:
+                return
+            x, y, _old = steps[row]
+            steps[row] = (x, y, round(float(value), 1))
+            commit(row)
+
+        add.clicked.connect(on_add)
+        repick.clicked.connect(on_repick)
+        up.clicked.connect(lambda: on_move(-1))
+        down.clicked.connect(lambda: on_move(1))
+        remove.clicked.connect(on_remove)
+        wait.valueChanged.connect(on_wait)
+        listing.currentRowChanged.connect(lambda _row: sync())
+        listing.itemDoubleClicked.connect(lambda _item: on_repick())
+
+        refresh(0)
+        self._controls[field.key] = holder
+
+        hint = self._explanation(field.key)
+        if hint is not None:
+            block.addWidget(hint)
         return holder
 
     def _capture(self) -> Optional[Any]:

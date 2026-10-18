@@ -54,6 +54,7 @@ SEGMENTED = "segmented"   # a row of mutually exclusive chips
 TOGGLE = "toggle"         # a checkbox
 NUMBER = "number"         # a spin box
 POINT = "point"           # a click position, picked off a live screenshot
+POINT_LIST = "point_list"  # click positions in order, each with its own wait
 NOTE = "note"             # explanatory prose, no value
 HOTKEY = "hotkey"         # a system-wide key combination
 
@@ -142,6 +143,64 @@ def as_point(value: Any, default: Tuple[int, int]) -> Tuple[int, int]:
     return (max(0, min(width - 1, x)), max(0, min(height - 1, y)))
 
 
+# ── click sequences ─────────────────────────────────────────────────────────
+#
+# A POINT_LIST is stored as plain text, "x,y,wait;x,y,wait", for the reason the
+# single POINT is: QSettings pickles a tuple, and a pickle ties the setting to
+# the PyQt version that wrote it. Text can also be read and fixed by hand.
+
+Step = Tuple[int, int, float]
+
+STEP_WAIT_DEFAULT = 2.0
+# Half a second is the event clicker's floor too: below it a press can land
+# while the game is still drawing the screen the previous press opened.
+STEP_WAIT_RANGE = (0.5, 60.0)
+MAX_STEPS = 20
+
+
+def as_steps(value: Any) -> Tuple[Step, ...]:
+    """Read a click sequence from whatever the settings store handed back.
+
+    The registry can return a comma-separated value as a list of strings, the
+    same flattening :func:`as_point` copes with, so a list is joined back into
+    the text it came from before parsing. A step that does not parse is
+    dropped, not defaulted: a made-up point in the middle of a sequence clicks
+    somewhere nobody chose. Points are clamped to the reference client area and
+    waits to :data:`STEP_WAIT_RANGE`.
+    """
+    if value is None:
+        return ()
+    if isinstance(value, (list, tuple)):
+        if value and all(isinstance(v, (list, tuple)) for v in value):
+            value = ";".join(",".join(str(p) for p in v) for v in value)
+        else:
+            value = ",".join(str(v) for v in value)
+    width, height = geometry.REFERENCE_CLIENT_SIZE
+    low, high = STEP_WAIT_RANGE
+    steps = []
+    for chunk in str(value).split(";"):
+        parts = [p.strip() for p in chunk.replace("(", "").replace(")", "").split(",")]
+        if len(parts) < 2 or not parts[0]:
+            continue
+        try:
+            x, y = int(parts[0]), int(parts[1])
+            wait = float(parts[2]) if len(parts) > 2 and parts[2] else STEP_WAIT_DEFAULT
+        except ValueError:
+            continue
+        if wait != wait:  # NaN
+            wait = STEP_WAIT_DEFAULT
+        steps.append((max(0, min(width - 1, x)), max(0, min(height - 1, y)),
+                      round(max(low, min(high, wait)), 1)))
+        if len(steps) >= MAX_STEPS:
+            break
+    return tuple(steps)
+
+
+def steps_text(steps: Any) -> str:
+    """The stored form of a click sequence — see :func:`as_steps`."""
+    return ";".join("%d,%d,%.1f" % step for step in as_steps(steps))
+
+
 @dataclass(frozen=True)
 class TaskSpec:
     """One automation: how it is described, configured and started."""
@@ -218,6 +277,9 @@ def coerce_fields(
             value = as_bool(value)
         if f.kind == POINT:
             config[f.key] = as_point(value, f.default)
+            continue
+        if f.kind == POINT_LIST:
+            config[f.key] = steps_text(value)
             continue
         if f.kind == NUMBER:
             try:
@@ -478,6 +540,44 @@ def build_event_clicker(hwnd, control, config, on_finished, on_error):
     )
 
 
+# ── Click sequence ──────────────────────────────────────────────────────────
+
+SEQUENCE_FIELDS = (
+    Field("steps", POINT_LIST, "Các điểm nhấn", default=""),
+    Field("rounds", NUMBER, "Dừng sau", default=10, minimum=1, maximum=999,
+          suffix=" vòng", disabled_when=("unlimited", True)),
+    Field("unlimited", TOGGLE, "Chạy vĩnh viễn", default=False),
+    Field("", NOTE, "Nhấn lần lượt từng điểm theo thứ tự trong danh sách, chờ "
+                    "đúng số giây của điểm đó rồi sang điểm kế tiếp. Nhấn hết "
+                    "danh sách là xong một vòng. Điểm được lưu theo cỡ cửa sổ "
+                    "chuẩn nên đổi cỡ cửa sổ game vẫn nhấn đúng chỗ."),
+    Field("", NOTE, "Tác vụ này không đọc màn hình — chỉ trả lời lời mời truy "
+                    "như mọi tác vụ khác. Nó không biết game đang ở màn nào: "
+                    "nếu một cú nhấn mở ra bảng khác (hết vé, mua bằng ngọc…) "
+                    "thì các điểm sau vẫn được nhấn vào bảng đó. Tránh đặt điểm "
+                    "ở nơi một bảng mua có thể hiện ra, và cho thời gian chờ "
+                    "đủ dài để màn hình kịp chuyển."),
+)
+
+
+def build_sequence_clicker(hwnd, control, config, on_finished, on_error):
+    import sequence_clicker
+
+    steps = as_steps(config["steps"])
+    if not steps:
+        raise ValueError("Chưa có điểm nhấn nào — thêm ít nhất một điểm "
+                         "trong trang Nhấn theo chuỗi")
+    return sequence_clicker.SequenceClickerWorker(
+        hwnd=hwnd,
+        steps=steps,
+        rounds=0 if as_bool(config["unlimited"]) else int(config["rounds"]),
+        accept_wanted_quest=config["wanted_invite"] == ACCEPT,
+        control=control,
+        on_finished=on_finished,
+        on_error=on_error,
+    )
+
+
 # ── Exploration ─────────────────────────────────────────────────────────────
 
 EXPLORATION_FIELDS = (
@@ -616,6 +716,16 @@ TASKS: Tuple[TaskSpec, ...] = (
         fields=EVENT_FIELDS,
         build=build_event_clicker,
         video="https://youtu.be/Zut8jUeUx-k",
+    ),
+    TaskSpec(
+        id="sequence",
+        name="Nhấn theo chuỗi",
+        kicker="Tác vụ · Click sequence",
+        summary="Nhấn lần lượt nhiều điểm đã chọn trên màn hình, mỗi điểm chờ "
+                "một khoảng riêng, lặp lại theo số vòng.",
+        progress_label="vòng đã nhấn",
+        fields=SEQUENCE_FIELDS,
+        build=build_sequence_clicker,
     ),
     TaskSpec(
         id="exploration",

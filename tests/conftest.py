@@ -73,6 +73,7 @@ STUBBED_WORKERS = {
     "souls": ("souls_dungeon", "SoulsDungeonWorker"),
     "beans": ("demon_parade", "DemonParadeWorker"),
     "event": ("event_clicker", "EventClickerWorker"),
+    "sequence": ("sequence_clicker", "SequenceClickerWorker"),
     "exploration": ("exploration", "ExplorationWorker"),
     "duel": ("duel", "DuelWorker"),
 }
