@@ -4,7 +4,7 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
-## Chưa phát hành
+## 3.30
 
 ### Mới
 
