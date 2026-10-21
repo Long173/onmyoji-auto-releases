@@ -56,6 +56,44 @@ def isolated_settings(tmp_path, monkeypatch):
     yield tmp_path / ("settings-%s.ini" % app_settings.theme.SETTINGS_SCOPE)
 
 
+# Where the startup entry goes during a test run. The same scratch key
+# test_autostart.py uses, so one cleanup covers both.
+STARTUP_SCRATCH_KEY = r"Software\OnmyojiToolTests\Run"
+
+
+@pytest.fixture(autouse=True)
+def no_real_startup_entry(tmp_path, monkeypatch):
+    """Keep every test off the real "start with Windows" entry.
+
+    The main window repairs that entry whenever it points at another copy of
+    the app — so every test that builds a dashboard rewrote the real Run key to
+    the checkout the tests ran from. From the usual checkout that rewrote it to
+    itself and nobody could see it. Run once from a scratch worktree, it pointed
+    the developer's sign-in at that worktree, and the machine started the tool
+    from a temporary folder for days.
+
+    test_autostart.py redirects the same things for its own tests; this does it
+    for all the others, which is where the leak was.
+    """
+    import autostart
+
+    folder = tmp_path / "startup-scratch"
+    folder.mkdir()
+    monkeypatch.setattr(autostart, "RUN_KEY", STARTUP_SCRATCH_KEY)
+    monkeypatch.setattr(autostart, "VALUE_NAME", "OnmyojiToolTest")
+    monkeypatch.setattr(autostart, "startup_dir", lambda: folder)
+    yield
+    try:
+        import winreg
+    except ImportError:  # not Windows: nothing was written
+        return
+    for key in (STARTUP_SCRATCH_KEY, r"Software\OnmyojiToolTests"):
+        try:
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
+        except OSError:
+            pass
+
+
 @pytest.fixture(scope="session")
 def qt_app():
     """One QApplication for the whole run — Qt allows only one."""
