@@ -575,3 +575,134 @@ def test_a_victory_banner_with_a_leaf_behind_it_is_seen():
 def test_the_victory_threshold_stays_clear_of_other_screens():
     """0.62 was the best score over 2186 saved frames of every other screen."""
     assert 0.62 + 0.1 <= souls_dungeon.VICTORY_ACCURACY <= 0.86 - 0.1
+
+
+# ── three players ───────────────────────────────────────────────────────────
+#
+# One teammate lights Fight, so the button cannot say whether the room is full.
+# An empty guest seat shows a "+" ring; with the option on, Fight waits until
+# neither seat shows it — and has shown none for FULL_PARTY_CONFIRM_SECONDS,
+# because "Invitation sent." lays itself across an empty seat's ring for a
+# moment and reads, to one look, like a taken seat.
+
+ROOM = {souls_dungeon.TPL_FIGHT: (1072, 562)}
+EMPTY_SEAT = {souls_dungeon.TPL_EMPTY_SLOT: (932, 223)}
+
+
+@pytest.fixture
+def quick_party(monkeypatch):
+    monkeypatch.setattr(souls_dungeon, "FULL_PARTY_CONFIRM_SECONDS", 0.05)
+    monkeypatch.setattr(souls_dungeon, "PARTY_POLL_SECONDS", 0.001)
+
+
+def test_without_the_option_one_teammate_is_enough(worker):
+    made = worker(matches={**ROOM, **EMPTY_SEAT}, saturation=149)
+
+    made._step()
+
+    assert made._control.clicks == [made._fight_button]
+
+
+def test_with_the_option_an_empty_seat_holds_fight(worker, quick_party):
+    made = worker(matches={**ROOM, **EMPTY_SEAT}, saturation=149, full_party=True)
+
+    for _ in range(5):
+        made._step()
+    time.sleep(0.1)
+    made._step()
+
+    assert made._control.clicks == [], "started with a seat still empty"
+
+
+def test_a_full_room_starts_once_it_has_stayed_full(worker, quick_party):
+    made = worker(matches=dict(ROOM), saturation=149, full_party=True)
+
+    made._step()
+    assert made._control.clicks == [], "pressed on the first look at a full room"
+
+    time.sleep(0.1)
+    made._step()
+    assert made._control.clicks == [made._fight_button]
+
+
+def test_a_seat_that_shows_empty_again_restarts_the_wait(worker, quick_party):
+    """The invitation banner: the ring is hidden, then back a second later."""
+    made = worker(matches=dict(ROOM), saturation=149, full_party=True)
+    made._step()                                   # looks full: banner over the ring
+    time.sleep(0.1)
+    made._control.matches.update(EMPTY_SEAT)       # banner gone, ring back
+    made._step()
+    del made._control.matches[souls_dungeon.TPL_EMPTY_SLOT]
+    made._step()                                   # looks full again: wait anew
+
+    assert made._control.clicks == []
+
+
+def test_the_wait_starts_over_after_each_battle(worker, quick_party):
+    made = worker(matches=dict(ROOM), saturation=149, full_party=True)
+    made._step()
+    time.sleep(0.1)
+    made._step()
+    assert len(made._control.clicks) == 1
+
+    made._step()                                   # the next room, first look
+
+    assert len(made._control.clicks) == 1, "the last room's wait carried over"
+
+
+# The seats as the game draws them. Each fixture is the guest-seat band cut at
+# the reference size: both seats empty (a live room), one taken (a recording),
+# and one covered by "Invitation sent." with the other still empty.
+SEATS = Path(__file__).parent / "fixtures" / "souls"
+
+
+def seats_control(band):
+    from conftest import bare_control
+
+    made = bare_control(client=geometry.REFERENCE_CLIENT_SIZE)
+    frame = np.zeros((633, 1122, 3), np.uint8)
+    (x, y), _ = geometry.SOULS_GUEST_SLOTS
+    frame[y:y + band.shape[0], x:x + band.shape[1]] = band
+    made.full_shot = lambda gray=False: (
+        cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if gray else frame)
+    return made
+
+
+def empty_seat_in(band):
+    made = SoulsDungeonWorker(hwnd=1, control=seats_control(band), full_party=True)
+    return made._find(souls_dungeon.TPL_EMPTY_SLOT, souls_dungeon.EMPTY_SLOT_ACCURACY,
+                      region=made._guest_slots, delay=0)
+
+
+def seats(name):
+    image = read_image(str(SEATS / name))
+    assert image is not None, name
+    return image
+
+
+@pytest.mark.parametrize("name", ["slots_both_empty.png", "slots_one_joined.png",
+                                  "slots_toast.png"])
+def test_a_room_with_an_empty_seat_is_seen_as_not_full(name):
+    assert empty_seat_in(seats(name)) is not None
+
+
+def test_a_room_with_both_seats_taken_is_seen_as_full():
+    """No three-player room was recorded; the taken seat stands in for both."""
+    band = seats("slots_one_joined.png").copy()
+    band[:, 442:662] = band[:, 75:295]            # the taken seat, over the empty one
+
+    assert empty_seat_in(band) is None
+
+
+def test_the_option_is_off_unless_ticked_and_reaches_the_worker(monkeypatch):
+    import tasks
+
+    seen = []
+    monkeypatch.setattr(souls_dungeon, "SoulsDungeonWorker",
+                        lambda **kwargs: seen.append(kwargs))
+    spec = tasks.get("souls")
+    for stored, expected in ((None, False), ("true", True)):
+        values = {} if stored is None else {"full_party": stored}
+        config = tasks.merge_layers(tasks.app_defaults(), spec.coerce(values))
+        spec.build(hwnd=1, control=None, config=config, on_finished=None, on_error=None)
+        assert seen[-1]["full_party"] is expected

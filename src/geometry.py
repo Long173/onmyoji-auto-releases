@@ -87,6 +87,10 @@ SOULS_FIGHT_BUTTON: Point = (1072, 562)
 # Measured mean HSV saturation over this patch: 149 lit, 4.5 dead.
 SOULS_FIGHT_PATCH: Region = ((1026, 540), (1103, 579))
 SOULS_FIGHT_LIT_SATURATION = 80.0   # midway between 4.5 and 149
+# The room's two guest seats, where an empty one shows a "+" ring. Searched for
+# that ring only here: the result screens and the battle have nothing like it,
+# but the whole frame is a lot of picture to give a 44px template the chance.
+SOULS_GUEST_SLOTS: Region = ((380, 140), (1090, 320))
 
 # Where both result screens are tapped: low and to the right, on bare ground.
 #

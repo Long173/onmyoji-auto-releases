@@ -442,6 +442,10 @@ SOULS_FIELDS = (
     Field("rounds", NUMBER, "Dừng sau", default=30, minimum=1, maximum=999,
           disabled_when=("unlimited", True)),
     Field("unlimited", TOGGLE, "Chạy vĩnh viễn", default=False),
+    Field("full_party", TOGGLE, "Đi 3 người", default=False),
+    Field("", NOTE, "Bật \"Đi 3 người\" thì chủ phòng chỉ bấm Bắt đầu khi cả hai "
+                    "chỗ trống đã có người (không còn ô dấu +). Tắt thì có một "
+                    "đồng đội là bấm, như trước."),
     Field("", NOTE, "Không cần chọn chủ phòng hay thành viên: cửa sổ nào có "
                     "nút Bắt đầu thì bấm khi phòng đủ người, cửa sổ không có "
                     "nút đó chỉ bấm qua màn kết thúc. Nút Bắt đầu được nhận "
@@ -463,6 +467,7 @@ def build_souls_dungeon(hwnd, control, config, on_finished, on_error):
         # checkbox instead, so the number never has to mean two things.
         rounds=0 if as_bool(config["unlimited"]) else int(config["rounds"]),
         accept_wanted_quest=config["wanted_invite"] == ACCEPT,
+        full_party=as_bool(config["full_party"]),
         accuracy=souls_dungeon.DEFAULT_ACCURACY,
         control=control,
         on_finished=on_finished,

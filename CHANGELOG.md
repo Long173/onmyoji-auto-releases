@@ -12,6 +12,8 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
   game, mỗi điểm một thời gian chờ riêng; tool nhấn chỗ chính rồi lần lượt
   từng điểm. Để trống thì Event chạy như cũ. (Ý tưởng và phần lớn mã của
   YukiHaruda.)
+- **Phụ bản ngự hồn**: tuỳ chọn "Đi 3 người" — chủ phòng chỉ bấm Bắt đầu
+  khi cả hai chỗ trống đã có người.
 
 ---
 

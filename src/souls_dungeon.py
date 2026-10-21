@@ -24,6 +24,7 @@ only the button's shape would click there every single round.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Optional
 
 import cv2
@@ -46,6 +47,11 @@ TPL_TAP_CONTINUE = template("SoulsDungeon", "tapContinue.png")
 # animated shine over it. Realm Raid's own result templates were tried first and
 # do not match this screen at all (0.48 and 0.63 against a 0.9 threshold).
 TPL_VICTORY = template("SoulsDungeon", "victory.png")
+# The "+" ring an empty guest seat shows, cut from a live room. It is how
+# "three players" is read: the room is full once neither seat shows it. Over
+# every recorded room it scored 0.985-1.000 on an empty seat and at most 0.51
+# on a taken one; nothing outside a room reaches 0.71.
+TPL_EMPTY_SLOT = template("SoulsDungeon", "emptySlot.png")
 
 # --- Tuning ----------------------------------------------------------------
 DEFAULT_ACCURACY = 0.9
@@ -56,6 +62,15 @@ DEFAULT_ACCURACY = 0.9
 # frames of every other screen the best score is 0.62, so 0.75 has room on both
 # sides.
 VICTORY_ACCURACY = 0.75
+EMPTY_SLOT_ACCURACY = 0.8
+# How long the room must read full before Fight is pressed, with the "three
+# players" option on. A seat's "+" can be hidden without the seat being taken:
+# the game lays "Invitation sent." across it, and that scored 0.55 — a taken
+# seat, to a single look. The banner is gone within a second in every
+# recording, so the room has to read full this long, looked at every
+# PARTY_POLL_SECONDS, and one "+" in between starts the wait again.
+FULL_PARTY_CONFIRM_SECONDS = 3.0
+PARTY_POLL_SECONDS = 1.0
 LOOP_LOG_EVERY = 30
 
 
@@ -79,6 +94,7 @@ class SoulsDungeonWorker(TaskWorker):
         hwnd: int,
         rounds: int = 0,
         accept_wanted_quest: bool = False,
+        full_party: bool = False,
         accuracy: float = DEFAULT_ACCURACY,
         on_finished: Callback = None,
         on_error: Callback = None,
@@ -94,6 +110,12 @@ class SoulsDungeonWorker(TaskWorker):
         self._fight_button = self._geometry.point(geometry.SOULS_FIGHT_BUTTON)
         self._fight_patch = self._geometry.region(geometry.SOULS_FIGHT_PATCH)
         self._result_tap = self._geometry.point(geometry.SOULS_RESULT_TAP)
+        # Three players: wait for both guest seats, not just the one teammate
+        # that lights the Fight button. See _party_is_full.
+        self._full_party = full_party
+        self._guest_slots = self._geometry.region(geometry.SOULS_GUEST_SLOTS)
+        self._full_since: Optional[float] = None
+        self._waiting_logged = False
 
         self._completed = 0
         # Counting happens on the rising edge. The result screen sits there for
@@ -308,7 +330,36 @@ class SoulsDungeonWorker(TaskWorker):
             # In the room, teammates not back yet. Wait rather than click.
             self._sleep(BATTLE_POLL_SECONDS)
             return True
+        if self._full_party and not self._party_is_full():
+            self._sleep(PARTY_POLL_SECONDS)
+            return True
         logger.info("Starting battle %d", self._completed + 1)
         self._control.click(self._fight_button)
+        self._full_since = None
+        self._waiting_logged = False
         self._sleep(AFTER_FIGHT_SECONDS)
         return True
+
+    def _party_is_full(self) -> bool:
+        """Whether both guest seats have been taken, and stayed taken.
+
+        One teammate is enough to light Fight, so the button cannot say this.
+        An empty seat can: it shows a "+" ring. No ring is not proof on its
+        own, though — "Invitation sent." covers it for a moment — so the room
+        must read full for FULL_PARTY_CONFIRM_SECONDS before it counts.
+        """
+        empty = self._find(TPL_EMPTY_SLOT, EMPTY_SLOT_ACCURACY,
+                           region=self._guest_slots)
+        if empty is not None:
+            if self._full_since is not None or not self._waiting_logged:
+                logger.info("A seat is still empty at %s — waiting for the "
+                            "third player", empty)
+            self._full_since = None
+            self._waiting_logged = True
+            return False
+        now = time.monotonic()
+        if self._full_since is None:
+            self._full_since = now
+            logger.info("Both seats look taken — making sure before Fight")
+            return False
+        return now - self._full_since >= FULL_PARTY_CONFIRM_SECONDS

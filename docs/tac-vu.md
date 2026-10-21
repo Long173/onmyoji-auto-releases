@@ -159,6 +159,23 @@ chọn sai là cách duy nhất làm hỏng một phòng: chủ phòng bị đ�
 vòng lặp — chỉ chủ phòng mới có nút Fight, nên cửa sổ thành viên không bao giờ
 tìm thấy nó và chỉ bấm qua màn kết thúc.
 
+**Tuỳ chọn "Đi 3 người".** Chỉ cần một đồng đội là nút Fight đã sáng, nên màu
+nút không cho biết phòng đã đủ 3 người hay chưa. Ô khách còn trống thì có vòng
+dấu "+" (`emptySlot.png`), và bật tuỳ chọn này thì chủ phòng chỉ bấm khi không
+còn ô nào có dấu đó.
+
+| Ô khách | Điểm `emptySlot.png` |
+| --- | --- |
+| Trống | 0.985 – 1.000 |
+| Có người | ≤ 0.51 |
+| Trống nhưng bị dòng "Invitation sent." che | ~0.55 |
+
+Dòng cuối là lý do phải **chờ 3 giây**: thông báo mời đè lên vòng "+", nhìn
+một lần thì giống ô đã có người. Nó tắt trong chưa tới một giây trên mọi bản
+ghi, nên phòng phải không có dấu "+" liên tục 3 giây mới bấm, và hễ thấy lại
+dấu "+" là đếm lại từ đầu. Bảng mời bạn bè cũng che ô, nhưng nó làm tối cả
+màn, nên nút Fight không còn sáng và tầng 2 ở trên đã chặn sẵn.
+
 ## Mỗi màn kết thúc có điểm bấm riêng
 
 Một trận có **hai** màn kết thúc, và chúng không giống nhau:
