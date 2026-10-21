@@ -295,22 +295,24 @@ def test_a_cancelled_pick_changes_nothing(form):
     assert made.emitted == []
 
 
-def test_moving_removing_and_rewaiting_a_step(form):
+def test_removing_and_rewaiting_a_step(form):
     from PyQt5 import QtWidgets
 
     made = form("1,1,1;2,2,1;3,3,1")
     listing = _listing(made)
-    listing.setCurrentRow(2)
-    _buttons(made)["Lên"].click()
-    assert made.emitted[-1] == ("extra_steps", "1,1,1.0;3,3,1.0;2,2,1.0")
-
     listing.setCurrentRow(0)
     _buttons(made)["Xoá"].click()
-    assert made.emitted[-1] == ("extra_steps", "3,3,1.0;2,2,1.0")
+    assert made.emitted[-1] == ("extra_steps", "2,2,1.0;3,3,1.0")
 
     listing.setCurrentRow(1)
     made.findChild(QtWidgets.QDoubleSpinBox).setValue(4.5)
-    assert made.emitted[-1] == ("extra_steps", "3,3,1.0;2,2,4.5")
+    assert made.emitted[-1] == ("extra_steps", "2,2,1.0;3,3,4.5")
+
+
+def test_the_list_has_no_up_and_down_buttons(form):
+    """Taken out as clutter: re-picking a point puts a short list in order."""
+    buttons = _buttons(form(""))
+    assert "Lên" not in buttons and "Xuống" not in buttons
 
 
 def test_repicking_replaces_only_that_point(form):

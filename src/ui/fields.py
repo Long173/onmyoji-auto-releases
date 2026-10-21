@@ -254,21 +254,18 @@ class FieldForm(QtWidgets.QWidget):
         wait_row.addStretch(1)
         block.addLayout(wait_row)
 
-        # Two fixed rows, not a FlowLayout: a wrapping layout reports the height
+        # One fixed row, not a FlowLayout: a wrapping layout reports the height
         # it would need at its narrowest, and the column hands that slack out as
-        # gaps around the list. Five buttons in one row are wider than the
-        # config panel, which then clips every note below it on the right.
+        # gaps around the list. No up/down buttons: a list this short is put in
+        # order by re-picking a point, and two more buttons were clutter.
         add = controls.OutlineButton("Thêm điểm", padding="8px 14px")
         repick = controls.OutlineButton("Chọn lại", padding="8px 12px")
         remove = controls.OutlineButton("Xoá", padding="8px 12px")
-        up = controls.OutlineButton("Lên", padding="8px 12px")
-        down = controls.OutlineButton("Xuống", padding="8px 12px")
-        for row_buttons in ((add, repick, remove), (up, down)):
-            row = hbox(6)
-            for button in row_buttons:
-                row.addWidget(button)
-            row.addStretch(1)
-            block.addLayout(row)
+        row = hbox(6)
+        for button in (add, repick, remove):
+            row.addWidget(button)
+        row.addStretch(1)
+        block.addLayout(row)
 
         def selected() -> int:
             row = listing.currentRow()
@@ -302,8 +299,6 @@ class FieldForm(QtWidgets.QWidget):
             add.setEnabled(len(steps) < tasks.MAX_STEPS)
             repick.setEnabled(has)
             remove.setEnabled(has)
-            up.setEnabled(has and row > 0)
-            down.setEnabled(has and row < len(steps) - 1)
             wait.setEnabled(has)
             blocked = wait.blockSignals(True)
             wait.setValue(steps[row][2] if has else tasks.STEP_WAIT_DEFAULT)
@@ -350,14 +345,6 @@ class FieldForm(QtWidgets.QWidget):
             steps[row] = (int(chosen[0]), int(chosen[1]), steps[row][2])
             commit(row)
 
-        def on_move(delta: int) -> None:
-            row = selected()
-            target = row + delta
-            if row < 0 or not 0 <= target < len(steps):
-                return
-            steps[row], steps[target] = steps[target], steps[row]
-            commit(target)
-
         def on_remove() -> None:
             row = selected()
             if row < 0:
@@ -375,8 +362,6 @@ class FieldForm(QtWidgets.QWidget):
 
         add.clicked.connect(on_add)
         repick.clicked.connect(on_repick)
-        up.clicked.connect(lambda: on_move(-1))
-        down.clicked.connect(lambda: on_move(1))
         remove.clicked.connect(on_remove)
         wait.valueChanged.connect(on_wait)
         listing.currentRowChanged.connect(lambda _row: sync())
