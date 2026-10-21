@@ -1,15 +1,18 @@
-"""Click sequence: the stored form, the loop, and the list on the task page.
+"""Event's added points: the stored form, the loop, and the list on the task page.
 
-Nothing here touches Windows: the control is stubbed, so these run headless and
-never post input anywhere. The parts pinned are the ones that cost something
-when wrong:
+Contributed as a task of its own ("Nhấn theo chuỗi") and folded into Event,
+which is the same loop with one point. Nothing here touches Windows: the
+control is stubbed, so these run headless and never post input anywhere. The
+parts pinned are the ones that cost something when wrong:
 
-* **Points go out in the order they were listed, each once per round.** A
+* **With no points added, Event is what it was.** Every player already on it
+  has an empty list, and their runs must not change under them.
+* **Points go out in the order they were listed, after the main one.** A
   sequence clicked out of order is a different sequence.
 * **A step is held, never skipped.** A press withheld because the cursor was
-  over the game is retried, or a round would count presses that never happened.
-* **The round limit stops it, and says so.** "Dừng sau 3 vòng" that runs a
-  fourth would be the clicker deciding for itself how long to play.
+  over the game is retried, so the next press is never one step ahead.
+* **A point inside the shop panel is flagged.** An added point is placed by
+  hand, usually mid-screen, which is where the jade purchase buttons are.
 * **The stored text survives what the settings store does to it.** The
   registry hands comma-separated values back as lists of strings.
 """
@@ -19,13 +22,14 @@ import time
 
 import pytest
 
+import event_clicker
 import geometry
-import sequence_clicker
 import tasks
-from sequence_clicker import SequenceClickerWorker
+from event_clicker import EventClickerWorker
 
 REFERENCE = geometry.REFERENCE_CLIENT_SIZE
 STEPS = ((100, 200, 0.5), (300, 400, 0.5), (500, 100, 0.5))
+MAIN = (1030, 549)
 
 
 class StubControl:
@@ -74,18 +78,16 @@ class StubControl:
 @pytest.fixture
 def worker(monkeypatch):
     created: list = []
-    monkeypatch.setattr(sequence_clicker, "MIN_WAIT_SECONDS", 0.0)
-    monkeypatch.setattr(sequence_clicker, "WITHHELD_RETRY_SECONDS", 0.001)
-    monkeypatch.setattr(sequence_clicker.wanted_invite, "find_reply",
+    monkeypatch.setattr(event_clicker, "MIN_INTERVAL_SECONDS", 0.0)
+    monkeypatch.setattr(event_clicker.wanted_invite, "find_reply",
                         lambda control, geo, accept: None)
 
-    def build(steps=((100, 200, 0.001), (300, 400, 0.001), (500, 100, 0.001)),
-              size=REFERENCE, **kwargs):
+    def build(steps=((100, 200, 0.001), (300, 400, 0.001)), size=REFERENCE,
+              interval=0.001, **kwargs):
         control = StubControl(size)
-        made = SequenceClickerWorker(hwnd=1, steps=steps, control=control, **kwargs)
+        made = EventClickerWorker(hwnd=1, point=MAIN, interval=interval,
+                                  steps=steps, control=control, **kwargs)
         made.control = control
-        made.finished_with = []
-        made._on_finished = made.finished_with.append
         created.append(made)
         return made
 
@@ -97,17 +99,16 @@ def worker(monkeypatch):
             made.join(3)
 
 
-def run_until_done(made, timeout=3.0):
+def run_until(made, clicks, timeout=3.0):
+    """Run until at least ``clicks`` presses went out, then stop."""
     made.start()
-    made.join(timeout)
-    assert not made.is_alive(), "the loop did not stop by itself"
-
-
-def run_briefly(made, seconds=0.3):
-    made.start()
-    time.sleep(seconds)
+    deadline = time.monotonic() + timeout
+    while len(made.control.clicks) < clicks and time.monotonic() < deadline:
+        time.sleep(0.005)
     made.stop()
     made.join(3)
+    assert len(made.control.clicks) >= clicks, "only %d clicks" % len(made.control.clicks)
+    return made.control.clicks[:clicks]
 
 
 # ── stored form ─────────────────────────────────────────────────────────────
@@ -153,119 +154,81 @@ def test_the_list_is_capped():
 
 
 def test_coerce_turns_a_stored_value_into_canonical_text():
-    spec = tasks.get("sequence")
-    config = spec.coerce({"steps": ["100", "200", "2;300", "400"]})
-    assert config["steps"] == "100,200,2.0;300,400,2.0"
+    config = tasks.get("event").coerce({"extra_steps": ["100", "200", "2;300", "400"]})
+    assert config["extra_steps"] == "100,200,2.0;300,400,2.0"
 
 
-# ── the task in the registry ────────────────────────────────────────────────
+# ── the builder ─────────────────────────────────────────────────────────────
 
 
-def test_the_task_is_registered_and_startable():
-    spec = tasks.get("sequence")
-    assert spec is not None and spec.is_available
-    assert spec.counts_progress
+def test_there_is_no_separate_sequence_task():
+    """Folded into Event: one task for "press fixed points over and over"."""
+    assert tasks.get("sequence") is None
 
 
-def test_building_with_no_points_is_refused_with_a_reason():
-    spec = tasks.get("sequence")
-    config = tasks.merge_layers(tasks.app_defaults(), spec.defaults())
-    with pytest.raises(ValueError, match="điểm"):
-        spec.build(hwnd=1, control=StubControl(), config=config,
-                   on_finished=None, on_error=None)
+def test_by_default_no_points_are_added():
+    config = tasks.merge_layers(tasks.app_defaults(), tasks.get("event").defaults())
+    assert tasks.as_steps(config["extra_steps"]) == ()
 
 
-def test_the_builder_passes_steps_and_rounds(monkeypatch):
-    spec = tasks.get("sequence")
+def test_the_builder_passes_the_added_points(monkeypatch):
+    spec = tasks.get("event")
     seen = {}
 
     class Spy:
         def __init__(self, **kwargs):
             seen.update(kwargs)
 
-    monkeypatch.setattr(sequence_clicker, "SequenceClickerWorker", Spy)
+    monkeypatch.setattr(event_clicker, "EventClickerWorker", Spy)
     config = tasks.merge_layers(tasks.app_defaults(), spec.coerce(
-        {"steps": "100,200,1.5;300,400,2", "rounds": 7, "unlimited": False}))
+        {"extra_steps": "100,200,1.5;300,400,2"}))
     spec.build(hwnd=1, control=None, config=config, on_finished=None, on_error=None)
-    assert seen["steps"] == ((100, 200, 1.5), (300, 400, 2.0))
-    assert seen["rounds"] == 7
 
-    config["unlimited"] = "true"   # as the registry returns it
-    spec.build(hwnd=1, control=None, config=config, on_finished=None, on_error=None)
-    assert seen["rounds"] == 0
+    assert seen["steps"] == ((100, 200, 1.5), (300, 400, 2.0))
 
 
 # ── the loop ────────────────────────────────────────────────────────────────
 
 
-def test_rejects_an_empty_sequence():
-    with pytest.raises(ValueError):
-        SequenceClickerWorker(hwnd=1, steps=(), control=StubControl())
-
-
 def test_rejects_a_wait_below_the_floor():
     with pytest.raises(ValueError):
-        SequenceClickerWorker(hwnd=1, steps=((1, 1, 0.0),), control=StubControl())
+        EventClickerWorker(hwnd=1, steps=((1, 1, 0.0),), control=StubControl())
 
 
-def test_clicks_in_order_once_per_round_and_stops_at_the_limit(worker):
-    made = worker(rounds=3)
-    run_until_done(made)
-
-    expected = [(100, 200), (300, 400), (500, 100)] * 3
-    assert made.control.clicks == expected
-    assert made.progress == 3
-    assert made.finished_with == ["Xong 3 vòng nhấn theo chuỗi."]
-    assert made.control.closed
+def test_with_nothing_added_only_the_main_point_is_pressed(worker):
+    assert set(run_until(worker(steps=()), 5)) == {MAIN}
 
 
-def test_unlimited_keeps_going_until_stopped(worker):
-    made = worker(rounds=0)
-    run_briefly(made)
+def test_the_main_point_then_each_added_point_in_order(worker):
+    clicks = run_until(worker(), 6)
+    assert clicks == [MAIN, (100, 200), (300, 400)] * 2
 
-    assert made.progress > 3
-    assert made.finished_with == [], "a stopped run is not a finished run"
+
+def test_each_point_waits_its_own_time(worker):
+    made = worker(steps=((100, 200, 0.25),), interval=0.001)
+    waits = []
+    made._sleep = lambda seconds: (waits.append(seconds), time.sleep(0.001))
+    run_until(made, 4)
+
+    assert waits[:4] == [0.001, 0.25, 0.001, 0.25]
 
 
 def test_a_withheld_click_is_retried_not_skipped(worker):
-    made = worker(rounds=1)
+    made = worker()
     made.control.withhold_next = 2
-    run_until_done(made)
-
-    assert made.control.clicks == [(100, 200), (300, 400), (500, 100)]
+    assert run_until(made, 3) == [MAIN, (100, 200), (300, 400)]
 
 
-def test_points_are_scaled_to_a_window_of_another_size(worker):
+def test_the_count_is_still_clicks(worker):
+    made = worker()
+    run_until(made, 5)
+    assert made.progress == len(made.control.clicks)
+
+
+def test_added_points_are_scaled_to_a_window_of_another_size(worker):
     half = (REFERENCE[0] // 2, REFERENCE[1] // 2)
-    made = worker(steps=((1000, 500, 0.001),), size=half, rounds=1)
-    run_until_done(made)
-
-    assert made.control.clicks == [(500, 250)]
-
-
-def test_stopping_mid_round_does_not_count_the_round(worker, monkeypatch):
-    made = worker(steps=((1, 1, 0.001), (2, 2, 5.0)), rounds=0)
-    run_briefly(made, 0.2)
-
-    assert made.control.clicks == [(1, 1), (2, 2)]
-    assert made.progress == 0
-
-
-def test_answers_a_wanted_invite_before_the_next_point(worker, monkeypatch):
-    monkeypatch.setattr(sequence_clicker, "POPUP_SETTLE_SECONDS", 0.001)
-    answered = []
-
-    def reply(control, geo, accept):
-        if not answered:
-            answered.append(True)
-            return (600, 300)
-        return None
-
-    monkeypatch.setattr(sequence_clicker.wanted_invite, "find_reply", reply)
-    made = worker(rounds=1)
-    run_until_done(made)
-
-    assert made.control.clicks == [(600, 300), (100, 200), (300, 400), (500, 100)]
+    clicks = run_until(worker(steps=((1000, 500, 0.001),), size=half), 2)
+    assert clicks[1] == (500, 250)
 
 
 # ── the list on the task page ───────────────────────────────────────────────
@@ -277,16 +240,22 @@ def form(qt_app, monkeypatch):
     from ui import point_picker
 
     picks: list = []
-    monkeypatch.setattr(point_picker, "choose_point",
-                        lambda start, *a, **k: picks.pop(0) if picks else None)
-    spec = tasks.get("sequence")
+    asked: list = []
+
+    def choose(start, *args, **kwargs):
+        asked.append(kwargs)
+        return picks.pop(0) if picks else None
+
+    monkeypatch.setattr(point_picker, "choose_point", choose)
+    spec = tasks.get("event")
 
     def build(stored=""):
-        values = dict(spec.defaults(), steps=stored)
+        values = dict(spec.defaults(), extra_steps=stored)
         made = fields_module.FieldForm(spec.shared_fields, values)
         made.emitted = []
         made.changed.connect(lambda key, value: made.emitted.append((key, value)))
         made.picks = picks
+        made.asked = asked
         return made
 
     return build
@@ -305,7 +274,7 @@ def _listing(form):
 
 
 def test_the_page_lists_stored_steps(form):
-    made = form("100,200,1.5;300,400,2")
+    made = form("100,200,1.5;1050,560,2")
     assert _listing(made).count() == 2
 
 
@@ -315,7 +284,7 @@ def test_adding_a_point_emits_the_stored_text(form):
     _buttons(made)["Thêm điểm"].click()
     _buttons(made)["Thêm điểm"].click()
 
-    assert made.emitted[-1] == ("steps", "10,20,2.0;30,40,2.0")
+    assert made.emitted[-1] == ("extra_steps", "10,20,2.0;30,40,2.0")
     assert _listing(made).count() == 2
 
 
@@ -333,15 +302,15 @@ def test_moving_removing_and_rewaiting_a_step(form):
     listing = _listing(made)
     listing.setCurrentRow(2)
     _buttons(made)["Lên"].click()
-    assert made.emitted[-1] == ("steps", "1,1,1.0;3,3,1.0;2,2,1.0")
+    assert made.emitted[-1] == ("extra_steps", "1,1,1.0;3,3,1.0;2,2,1.0")
 
     listing.setCurrentRow(0)
     _buttons(made)["Xoá"].click()
-    assert made.emitted[-1] == ("steps", "3,3,1.0;2,2,1.0")
+    assert made.emitted[-1] == ("extra_steps", "3,3,1.0;2,2,1.0")
 
     listing.setCurrentRow(1)
     made.findChild(QtWidgets.QDoubleSpinBox).setValue(4.5)
-    assert made.emitted[-1] == ("steps", "3,3,1.0;2,2,4.5")
+    assert made.emitted[-1] == ("extra_steps", "3,3,1.0;2,2,4.5")
 
 
 def test_repicking_replaces_only_that_point(form):
@@ -350,26 +319,43 @@ def test_repicking_replaces_only_that_point(form):
     made.picks.append((9, 9))
     _buttons(made)["Chọn lại"].click()
 
-    assert made.emitted[-1] == ("steps", "1,1,1.0;9,9,3.0")
+    assert made.emitted[-1] == ("extra_steps", "1,1,1.0;9,9,3.0")
+
+
+def test_a_point_inside_the_shop_panel_is_flagged_in_the_list(form):
+    """Mid-screen is where the jade purchase buttons are when tickets run out."""
+    made = form("1050,560,2;500,300,2")
+    listing = _listing(made)
+
+    assert "⚠" not in listing.item(0).text()
+    assert "⚠" in listing.item(1).text()
+
+
+def test_the_picker_is_told_about_the_shop_panel(form):
+    made = form("")
+    made.picks.append((10, 20))
+    _buttons(made)["Thêm điểm"].click()
+
+    assert made.asked[-1]["danger"] == geometry.EVENT_SHOP_PANEL
 
 
 # ── through the app: saved, reloaded, handed to the worker ──────────────────
 
 
 def test_steps_are_stored_as_plain_text(dashboard):
-    dashboard._on_option_changed("sequence", "steps", "10,20,1.5;30,40,2.0")
+    dashboard._on_option_changed("event", "extra_steps", "10,20,1.5;30,40,2.0")
 
-    stored = dashboard._settings.value("tasks/sequence/steps")
+    stored = dashboard._settings.value("tasks/event/extra_steps")
     assert stored == "10,20,1.5;30,40,2.0", "stored as %r" % (stored,)
 
 
 def test_steps_survive_a_restart(dashboard, isolated_settings):
     from PyQt5 import QtCore
 
-    dashboard._on_option_changed("sequence", "steps", "10,20,1.5;30,40,2.0")
+    dashboard._on_option_changed("event", "extra_steps", "10,20,1.5;30,40,2.0")
     dashboard._settings.sync()
     reopened = QtCore.QSettings(str(isolated_settings), QtCore.QSettings.IniFormat)
-    raw = reopened.value("tasks/sequence/steps")
+    raw = reopened.value("tasks/event/extra_steps")
 
     assert tasks.as_steps(raw) == ((10, 20, 1.5), (30, 40, 2.0)), "read back %r" % (raw,)
 
@@ -377,18 +363,15 @@ def test_steps_survive_a_restart(dashboard, isolated_settings):
 def test_steps_reach_the_worker(dashboard):
     from conftest import SpyWorker
 
-    dashboard._on_option_changed("sequence", "steps", "10,20,1.5;30,40,2.0")
-    dashboard._on_option_changed("sequence", "rounds", 4)
-    dashboard._on_select(101, "sequence")
+    dashboard._on_option_changed("event", "extra_steps", "10,20,1.5;30,40,2.0")
+    dashboard._on_select(101, "event")
     dashboard._on_start(101)
 
-    kwargs = SpyWorker.live[-1].kwargs
-    assert kwargs["steps"] == ((10, 20, 1.5), (30, 40, 2.0))
-    assert kwargs["rounds"] == 4
+    assert SpyWorker.live[-1].kwargs["steps"] == ((10, 20, 1.5), (30, 40, 2.0))
 
 
-def test_the_task_page_builds(dashboard):
+def test_the_event_page_carries_the_list(dashboard):
     from PyQt5 import QtWidgets
 
-    dashboard._show_page("sequence")
+    dashboard._show_page("event")
     assert dashboard.findChild(QtWidgets.QListWidget, "pointList") is not None

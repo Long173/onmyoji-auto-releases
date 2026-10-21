@@ -39,6 +39,15 @@ Two consequences to know before leaving it unattended:
   the screen cannot know how many runs finished, and a count that drifts from
   reality is worse than no count at all.
 
+**More points, if a screen wants them.** Some events need a press somewhere
+the one point does not reach — a tab, a confirm — and the player can add
+points after the main one, each with its own wait (contributed as a task of its
+own, "Nhấn theo chuỗi", and folded in here: it is this loop with a list). A
+round is the main point, then each added point in order; with none added this
+is the one point on its cadence, unchanged. The shop panel matters more here,
+not less: an added point is placed by hand, usually mid-screen, so the picker
+and the list both flag one that sits inside the panel.
+
 The one thing it does read is a co-op Wanted Quest invite. That dialog is
 somebody else's doing, it covers the screen and swallows every click underneath
 — so a blind clicker would sit behind it pressing nothing until it timed out.
@@ -47,7 +56,7 @@ Every other task answers it; this one does too.
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 import geometry
 import wanted_invite
@@ -78,6 +87,7 @@ class EventClickerWorker(TaskWorker):
         hwnd: int,
         point: Optional[Tuple[int, int]] = None,
         interval: float = DEFAULT_INTERVAL_SECONDS,
+        steps: Sequence[Tuple[int, int, float]] = (),
         accept_wanted_quest: bool = False,
         on_finished: Callback = None,
         on_error: Callback = None,
@@ -87,6 +97,11 @@ class EventClickerWorker(TaskWorker):
             raise ValueError(
                 "Interval must be at least %.1fs" % MIN_INTERVAL_SECONDS
             )
+        for step in steps:
+            if float(step[2]) < MIN_INTERVAL_SECONDS:
+                raise ValueError(
+                    "Each wait must be at least %.1fs" % MIN_INTERVAL_SECONDS
+                )
         super().__init__("EventClickerWorker", hwnd, control, on_finished, on_error)
         self._interval = interval
         self._accept_wanted_quest = accept_wanted_quest
@@ -96,6 +111,14 @@ class EventClickerWorker(TaskWorker):
         # client area is not the reference size.
         chosen = tuple(point) if point else geometry.EVENT_CLICK_POINT
         self._point = self._geometry.point(chosen)
+        # The main point first, waiting the interval after it, then any points
+        # the player added, each with its own wait. With none added this is the
+        # one point on its cadence, exactly as before they existed.
+        self._steps = [(self._point, float(interval))] + [
+            (self._geometry.point((int(x), int(y))), float(wait))
+            for x, y, wait in steps
+        ]
+        self._next = 0
         self._clicks = 0
         self._invites_handled = 0
 
@@ -106,8 +129,9 @@ class EventClickerWorker(TaskWorker):
 
     def run(self) -> None:
         logger.info(
-            "Event clicker starting — point=%s every %.1fs — %s",
-            self._point, self._interval, self._control.describe(),
+            "Event clicker starting — point=%s every %.1fs, %d added point(s) — %s",
+            self._point, self._interval, len(self._steps) - 1,
+            self._control.describe(),
         )
         if not self._geometry.is_reference_size:
             logger.warning(
@@ -159,9 +183,15 @@ class EventClickerWorker(TaskWorker):
         # Counted only if it went out. The control withholds clicks while the
         # player's cursor is over the game, and a figure that counts those is a
         # figure that drifts from what the game was actually told.
-        if self._control.click(self._point):
+        #
+        # The same goes for moving on: a withheld press is tried again, not
+        # skipped, so the added points always go out in the order they were
+        # listed.
+        point, wait = self._steps[self._next]
+        if self._control.click(point):
             self._clicks += 1
-        self._sleep(self._interval)
+            self._next = (self._next + 1) % len(self._steps)
+        self._sleep(wait)
 
     def _handle_wanted_invite(self) -> bool:
         """Answer a co-op Wanted Quest invite. Shared with every other task."""

@@ -513,16 +513,25 @@ EVENT_FIELDS = (
                       "chỗ ngoài vùng giữa màn hình."),
     Field("interval", NUMBER, "Nhấn mỗi", default=2, minimum=1, maximum=10,
           suffix=" giây"),
-    Field("", NOTE, "Tác vụ này không đọc màn hình, chỉ nhấn đúng một chỗ và "
-                    "lặp lại. Chữ trên nút bắt đầu mỗi event một khác "
+    Field("extra_steps", POINT_LIST, "Nhấn thêm sau đó (tuỳ chọn)", default="",
+          danger_zone=geometry.EVENT_SHOP_PANEL,
+          danger_note="Điểm này nằm trong vùng bảng bán vé hiện ra khi hết vé — "
+                      "nhấn vào đó có thể bấm nhầm nút mua bằng ngọc."),
+    Field("", NOTE, "Thêm điểm nếu màn event cần nhấn ở chỗ khác nữa (một tab, "
+                    "một nút xác nhận…): tool nhấn chỗ chính, chờ, rồi lần lượt "
+                    "từng điểm thêm, mỗi điểm chờ số giây riêng, xong lại từ "
+                    "đầu. Để trống thì chỉ nhấn chỗ chính như trước."),
+    Field("", NOTE, "Tác vụ này không đọc màn hình, chỉ nhấn những chỗ đã chọn "
+                    "và lặp lại. Chữ trên nút bắt đầu mỗi event một khác "
                     "(Challenge, Fight…) nên không thể nhận diện theo chữ, còn "
                     "vị trí nút thì không đổi — ở màn event cú nhấn đó vào "
                     "trận, ở màn kết thúc nó là cú chạm tắt bảng, đang đánh "
                     "thì nó rơi vào chỗ vô hại. Đổi lại, nó không biết lúc nào "
                     "hết vé: hết vé thì game mở bảng bán vé bằng ngọc, chỗ "
                     "nhấn mặc định nằm ngoài bảng đó nên chỉ tắt bảng, nhưng "
-                    "chỗ nhấn đặt vào giữa màn hình thì có thể bấm nhầm nút "
-                    "mua. Số đếm là số lần nhấn, không phải số trận."),
+                    "chỗ nhấn đặt vào giữa màn hình — kể cả điểm thêm — thì có "
+                    "thể bấm nhầm nút mua. Số đếm là số lần nhấn, không phải "
+                    "số trận."),
 )
 
 
@@ -533,44 +542,7 @@ def build_event_clicker(hwnd, control, config, on_finished, on_error):
         hwnd=hwnd,
         point=as_point(config["click_point"], geometry.EVENT_CLICK_POINT),
         interval=float(config["interval"]),
-        accept_wanted_quest=config["wanted_invite"] == ACCEPT,
-        control=control,
-        on_finished=on_finished,
-        on_error=on_error,
-    )
-
-
-# ── Click sequence ──────────────────────────────────────────────────────────
-
-SEQUENCE_FIELDS = (
-    Field("steps", POINT_LIST, "Các điểm nhấn", default=""),
-    Field("rounds", NUMBER, "Dừng sau", default=10, minimum=1, maximum=999,
-          suffix=" vòng", disabled_when=("unlimited", True)),
-    Field("unlimited", TOGGLE, "Chạy vĩnh viễn", default=False),
-    Field("", NOTE, "Nhấn lần lượt từng điểm theo thứ tự trong danh sách, chờ "
-                    "đúng số giây của điểm đó rồi sang điểm kế tiếp. Nhấn hết "
-                    "danh sách là xong một vòng. Điểm được lưu theo cỡ cửa sổ "
-                    "chuẩn nên đổi cỡ cửa sổ game vẫn nhấn đúng chỗ."),
-    Field("", NOTE, "Tác vụ này không đọc màn hình — chỉ trả lời lời mời truy "
-                    "như mọi tác vụ khác. Nó không biết game đang ở màn nào: "
-                    "nếu một cú nhấn mở ra bảng khác (hết vé, mua bằng ngọc…) "
-                    "thì các điểm sau vẫn được nhấn vào bảng đó. Tránh đặt điểm "
-                    "ở nơi một bảng mua có thể hiện ra, và cho thời gian chờ "
-                    "đủ dài để màn hình kịp chuyển."),
-)
-
-
-def build_sequence_clicker(hwnd, control, config, on_finished, on_error):
-    import sequence_clicker
-
-    steps = as_steps(config["steps"])
-    if not steps:
-        raise ValueError("Chưa có điểm nhấn nào — thêm ít nhất một điểm "
-                         "trong trang Nhấn theo chuỗi")
-    return sequence_clicker.SequenceClickerWorker(
-        hwnd=hwnd,
-        steps=steps,
-        rounds=0 if as_bool(config["unlimited"]) else int(config["rounds"]),
+        steps=as_steps(config["extra_steps"]),
         accept_wanted_quest=config["wanted_invite"] == ACCEPT,
         control=control,
         on_finished=on_finished,
@@ -716,16 +688,6 @@ TASKS: Tuple[TaskSpec, ...] = (
         fields=EVENT_FIELDS,
         build=build_event_clicker,
         video="https://youtu.be/Zut8jUeUx-k",
-    ),
-    TaskSpec(
-        id="sequence",
-        name="Nhấn theo chuỗi",
-        kicker="Tác vụ · Click sequence",
-        summary="Nhấn lần lượt nhiều điểm đã chọn trên màn hình, mỗi điểm chờ "
-                "một khoảng riêng, lặp lại theo số vòng.",
-        progress_label="vòng đã nhấn",
-        fields=SEQUENCE_FIELDS,
-        build=build_sequence_clicker,
     ),
     TaskSpec(
         id="exploration",

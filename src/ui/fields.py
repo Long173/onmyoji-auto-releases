@@ -278,7 +278,12 @@ class FieldForm(QtWidgets.QWidget):
             blocked = listing.blockSignals(True)
             listing.clear()
             for number, (x, y, seconds) in enumerate(steps, 1):
-                listing.addItem("%2d.  %4d, %-4d  ·  %.1f giây" % (number, x, y, seconds))
+                text = "%2d.  %4d, %-4d  ·  %.1f giây" % (number, x, y, seconds)
+                if in_danger((x, y)):
+                    # Said in the list, not only in the picker: a point chosen
+                    # last week is read here, and the picker is long closed.
+                    text += "  ·  ⚠ vùng bảng mua"
+                listing.addItem(text)
             if steps:
                 listing.setCurrentRow(max(0, min(select, len(steps) - 1)))
             listing.blockSignals(blocked)
@@ -311,7 +316,15 @@ class FieldForm(QtWidgets.QWidget):
         def pick(start, title):
             from ui.point_picker import choose_point
 
-            return choose_point(start, self._capture, start, self, title=title)
+            return choose_point(start, self._capture, start, self,
+                                danger=field.danger_zone,
+                                danger_note=field.danger_note, title=title)
+
+        def in_danger(point) -> bool:
+            if not field.danger_zone:
+                return False
+            (left, top), (right, bottom) = field.danger_zone
+            return left <= point[0] <= right and top <= point[1] <= bottom
 
         def on_add() -> None:
             if len(steps) >= tasks.MAX_STEPS:

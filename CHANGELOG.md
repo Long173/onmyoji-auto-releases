@@ -8,10 +8,10 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ### Mới
 
-- **Nhấn theo chuỗi**: tác vụ mới — chọn nhiều điểm trên ảnh chụp game, mỗi
-  điểm một thời gian chờ riêng, tool nhấn lần lượt rồi lặp lại theo số vòng
-  (hoặc chạy vĩnh viễn). Như Event, tác vụ này không đọc màn hình ngoài lời
-  mời truy.
+- **Event**: thêm "Nhấn thêm sau đó" — chọn thêm vài điểm trên ảnh chụp
+  game, mỗi điểm một thời gian chờ riêng; tool nhấn chỗ chính rồi lần lượt
+  từng điểm. Để trống thì Event chạy như cũ. (Ý tưởng và phần lớn mã của
+  YukiHaruda.)
 
 ---
 
