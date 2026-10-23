@@ -4,6 +4,15 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## Chưa phát hành
+
+### Sửa
+
+- **Chụp màn hình**: chụp đúng cỡ cửa sổ hiện tại; trước đây phóng to
+  game (Alt+Enter) xong vẫn chụp theo cỡ cũ.
+
+---
+
 ## 3.30
 
 ### Mới

@@ -98,20 +98,23 @@ class GameControl:
 
     # ---------- window metrics ----------
 
-    def _measure_window(self) -> None:
-        # Every number below is in the game's own coordinate space, not the
+    def _read_metrics(self) -> Tuple[int, int, int, int]:
+        """(client width, client height, window width, window height), now."""
+        # Every number here is in the game's own coordinate space, not the
         # screen's. They differ whenever the game is DPI-virtualised; see dpi.py.
         with dpi.window_space(self.hwnd):
             left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
             _, _, client_right, client_bottom = win32gui.GetClientRect(self.hwnd)
-        self.client_width = client_right
-        self.client_height = client_bottom
-        self.window_width = max(1, right - left)
-        self.window_height = max(1, bottom - top)
+        return (client_right, client_bottom,
+                max(1, right - left), max(1, bottom - top))
+
+    def _measure_window(self) -> None:
+        (self.client_width, self.client_height,
+         self.window_width, self.window_height) = self._read_metrics()
         # Windows reports no border offsets directly; derive them from the
         # difference between the outer and client rectangles.
-        self.border_left = (self.window_width - client_right) // 2
-        self.border_top = self.window_height - client_bottom - self.border_left
+        self.border_left = (self.window_width - self.client_width) // 2
+        self.border_top = self.window_height - self.client_height - self.border_left
 
     @property
     def client_is_measurable(self) -> bool:
@@ -371,9 +374,35 @@ class GameControl:
         return colour
 
     def preview(self) -> Optional[np.ndarray]:
-        """A frame for a thumbnail. A window is quick to photograph, so this is
-        simply a capture; an emulator's control answers from its last frame."""
+        """A frame for a thumbnail or a screenshot, at the window's size *now*.
+
+        A window is quick to photograph, so this is simply a capture; an
+        emulator's control answers from its last frame. It is measured again
+        first because this control outlives any one size: the session keeps it
+        for as long as the window is listed, and the bitmaps it captures into
+        were made at the size the window had then. Switched to full screen
+        with Alt+Enter, the window went on being photographed at its old size —
+        reported as the screenshot button "still taking the old size".
+
+        Only here, not in ``full_shot``. A running task scales its points and
+        regions once, from the size the window had when it started, and a
+        capture that changed size under it would match the new picture against
+        the old geometry.
+        """
+        self.follow_resize()
         return self.full_shot()
+
+    def follow_resize(self) -> bool:
+        """Re-measure if the window changed size; True if it had."""
+        now = self._read_metrics()
+        was = (self.client_width, self.client_height,
+               self.window_width, self.window_height)
+        if now == was:
+            return False
+        logger.info("Window 0x%08x is now %dx%d (was %dx%d); capturing at the "
+                    "new size", self.hwnd, now[0], now[1], was[0], was[1])
+        self.refresh_metrics()
+        return True
 
     def part_shot(self, region: Region, gray: bool = False) -> np.ndarray:
         """Capture a sub-rectangle of the client area, as ``((x1,y1),(x2,y2))``."""
