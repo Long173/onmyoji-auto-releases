@@ -8,8 +8,9 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ### Mới
 
-- **Thám hiểm chương**: chọn chương theo số (mặc định 28) thay cho
-  "Chỗ nhấn vào chương"; tool tự cuộn danh sách bên phải bản đồ để tìm.
+- **Thám hiểm chương**: chọn chương trong danh sách thả xuống (mặc định
+  Chương 28) thay cho "Chỗ nhấn vào chương"; tool tự cuộn danh sách bên
+  phải bản đồ để tìm.
 
 ### Sửa
 

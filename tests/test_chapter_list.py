@@ -146,3 +146,50 @@ def test_the_fade_into_a_chapter_panel_is_not_taken_for_the_world_map():
                                  exploration.CHAPTER_LIST_THRESHOLD,
                                  region=worker._chapter_list, delay=0)
     assert found is None
+
+
+# ── choosing the chapter ────────────────────────────────────────────────────
+
+
+def build_with(monkeypatch, stored):
+    import exploration
+    import tasks
+
+    seen = []
+    monkeypatch.setattr(exploration, "ExplorationWorker", lambda **kw: seen.append(kw))
+    spec = tasks.get("exploration")
+    config = tasks.merge_layers(tasks.app_defaults(), spec.coerce(stored))
+    spec.build(hwnd=1, control=None, config=config, on_finished=None, on_error=None)
+    return seen[-1]["chapter"]
+
+
+def test_chapter_28_unless_another_is_chosen(monkeypatch):
+    assert build_with(monkeypatch, {}) == 28
+
+
+def test_the_chosen_chapter_reaches_the_worker(monkeypatch):
+    assert build_with(monkeypatch, {"chapter": "Chương 14"}) == 14
+
+
+@pytest.mark.parametrize("stored", [28, "28", "Chapter 3", "Chương 99", ""])
+def test_a_value_that_is_not_an_option_falls_back_to_28(monkeypatch, stored):
+    """An older build kept a number here, and the registry hands back strings."""
+    assert build_with(monkeypatch, {"chapter": stored}) == 28
+
+
+def test_the_page_offers_every_chapter_in_a_dropdown(qt_app):
+    from PyQt5 import QtWidgets
+
+    import tasks
+    from ui import fields as fields_module
+
+    spec = tasks.get("exploration")
+    form = fields_module.FieldForm(spec.shared_fields, spec.defaults())
+    emitted = []
+    form.changed.connect(lambda key, value: emitted.append((key, value)))
+    box = form.findChild(QtWidgets.QComboBox)
+
+    assert box.count() == 28
+    assert box.currentText() == "Chương 28"
+    box.setCurrentIndex(13)
+    assert emitted[-1] == ("chapter", "Chương 14")

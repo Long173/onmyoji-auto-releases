@@ -51,6 +51,7 @@ import realm_raid
 # ── field kinds ─────────────────────────────────────────────────────────────
 
 SEGMENTED = "segmented"   # a row of mutually exclusive chips
+DROPDOWN = "dropdown"     # one of many options, too many for a row of chips
 TOGGLE = "toggle"         # a checkbox
 NUMBER = "number"         # a spin box
 POINT = "point"           # a click position, picked off a live screenshot
@@ -264,7 +265,7 @@ def coerce_fields(
         if not f.holds_value or not stored or f.key not in stored:
             continue
         value = stored[f.key]
-        if f.kind == SEGMENTED and value not in f.options:
+        if f.kind in (SEGMENTED, DROPDOWN) and value not in f.options:
             continue
         if f.kind == HOTKEY:
             # Kept as typed rather than validated here. An unusable combination
@@ -557,8 +558,21 @@ def build_event_clicker(hwnd, control, config, on_finished, on_error):
 
 # ── Exploration ─────────────────────────────────────────────────────────────
 
+# The chapters the list on the world map holds, as the dropdown shows them. The
+# stored value is the option's text; chapter_number reads the number back out.
+CHAPTER_OPTIONS: Tuple[str, ...] = tuple("Chương %d" % n for n in range(1, 29))
+
+
+def chapter_number(option: Any) -> int:
+    """The chapter an option names: "Chương 14" -> 14. Anything else -> 28."""
+    try:
+        return int(str(option).split()[-1])
+    except (ValueError, IndexError):
+        return 28
+
+
 EXPLORATION_FIELDS = (
-    Field("chapter", NUMBER, "Chương", default=28, minimum=1, maximum=28),
+    Field("chapter", DROPDOWN, "Chương", CHAPTER_OPTIONS, CHAPTER_OPTIONS[-1]),
     Field("raid_relay", TOGGLE, "Đủ 30/30 vé thì đi phá kết giới",
           default=False),
     Field("", NOTE, "Tự đi ổ quái trong một chương: thấy ổ quái thì nhấn "
@@ -596,7 +610,7 @@ def build_exploration(hwnd, control, config, on_finished, on_error):
 
     return exploration.ExplorationWorker(
         hwnd=hwnd,
-        chapter=int(config["chapter"]),
+        chapter=chapter_number(config["chapter"]),
         accept_wanted_quest=config["wanted_invite"] == ACCEPT,
         raid_relay=as_bool(config["raid_relay"]),
         control=control,

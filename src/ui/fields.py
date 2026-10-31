@@ -82,6 +82,8 @@ class FieldForm(QtWidgets.QWidget):
             return self._toggle(field, values)
         if field.kind == tasks.SEGMENTED:
             return self._segmented(field, values)
+        if field.kind == tasks.DROPDOWN:
+            return self._dropdown(field, values)
         if field.kind == tasks.NUMBER:
             return self._number(field, values)
         if field.kind == tasks.HOTKEY:
@@ -408,6 +410,50 @@ class FieldForm(QtWidgets.QWidget):
         )
         box.valueChanged.connect(
             lambda value, key=field.key: self.changed.emit(key, value)
+        )
+        block.addWidget(box)
+        self._controls[field.key] = box
+
+        hint = self._explanation(field.key)
+        if hint is not None:
+            block.addWidget(hint)
+        holder.setLayout(block)
+        return holder
+
+    def _dropdown(self, field: tasks.Field, values: Mapping[str, Any]) -> QtWidgets.QWidget:
+        """One option of many, as a drop-down list.
+
+        Chips would do for three options; twenty-eight chapters is a wall of
+        them. Dressed like the number box beside it so the panel stays one set
+        of controls.
+        """
+        holder = QtWidgets.QWidget()
+        block = vbox(8)
+        block.addWidget(label(field.label, theme.body(13), theme.TEXT_MUTED))
+
+        box = QtWidgets.QComboBox()
+        box.addItems(list(field.options))
+        current = values.get(field.key, field.default)
+        index = box.findText(str(current))
+        if index < 0:
+            index = box.findText(str(field.default))
+        box.setCurrentIndex(max(0, index))
+        # Long lists open as a scrolling list rather than one tall enough to
+        # leave the screen.
+        box.setMaxVisibleItems(12)
+        box.setFont(theme.body(13))
+        box.setFixedHeight(34)
+        box.setStyleSheet(
+            "QComboBox { background: %s; border: 1px solid %s; border-radius: %dpx;"
+            " padding: 0 8px; color: %s; }"
+            "QComboBox:focus { border-color: %s; }"
+            "QComboBox QAbstractItemView { background: %s; color: %s;"
+            " selection-background-color: %s; outline: 0; }"
+            % (theme.INSET, theme.CONTROL, theme.RADIUS, theme.TEXT, theme.ACCENT,
+               theme.CARD, theme.TEXT, theme.ACCENT_FILL)
+        )
+        box.currentTextChanged.connect(
+            lambda text, key=field.key: self.changed.emit(key, text)
         )
         block.addWidget(box)
         self._controls[field.key] = box
