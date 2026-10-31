@@ -6,8 +6,15 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ## Chưa phát hành
 
+### Mới
+
+- **Thám hiểm chương**: chọn chương theo số (mặc định 28) thay cho
+  "Chỗ nhấn vào chương"; tool tự cuộn danh sách bên phải bản đồ để tìm.
+
 ### Sửa
 
+- **Thám hiểm chương**: nhận ra bản đồ thế giới ở mọi nền; trước đây có
+  đoạn bản đồ tool đứng yên không mở chương.
 - **Chụp màn hình**: chụp đúng cỡ cửa sổ hiện tại; trước đây phóng to
   game (Alt+Enter) xong vẫn chụp theo cỡ cũ.
 

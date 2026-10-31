@@ -3,7 +3,8 @@
 One hand-played lap was recorded — 77 frames, `recordings/map/` — and the loop
 below is that lap, written down:
 
-    world map          press the chapter row
+    world map          find the chapter's row by its number, press it
+                       (chapter_list.py; the list is dragged until it shows)
     chapter panel      press Exploration
     exploration map    press a crossed-swords badge -> straight into battle
     battle             plays itself out
@@ -146,6 +147,7 @@ import numpy as np
 
 import geometry
 import wanted_invite
+from chapter_list import TPL_CHAPTER_WORD, ChapterList
 from game_control import CaptureError, GameControl
 from paths import template
 from task_worker import Callback, TaskWorker
@@ -279,6 +281,24 @@ AFTER_ENTER_SECONDS = 3.0   # the chapter loading in
 AFTER_DRAG_SECONDS = 0.6    # the map coasting to a stop
 POPUP_SETTLE_SECONDS = 1.0
 
+# The chapter farmed when nobody chose one: the last, where the list rests.
+DEFAULT_CHAPTER = 28
+# The chapter list's "Chapter" word, as the world map's third signal. Over every
+# recorded frame: 0.979 and up on the world map, 0.566 at most anywhere else —
+# bar one, the cross-fade into a chapter panel at 0.886, which this keeps out
+# too. It is opaque white on a dark band, so it holds where the other two sink:
+# on a live map over green countryside the tab strip read 0.794 and the Realm
+# Raid icon 0.74, both under their cut-offs, and the loop stood on a world map
+# it could not see.
+CHAPTER_LIST_THRESHOLD = 0.93
+# The chapter list coasts after a drag; read it before then and the rows are
+# still moving. 1.2 s was enough on every drag of a live list.
+LIST_SETTLE_SECONDS = 1.2
+# Drags, and taps on the Main tab, spent looking for the chapter before giving
+# up. The whole list is eleven drags end to end, so this is room for one full
+# pass each way; past it the chapter is not in the list — not unlocked yet.
+CHAPTER_SEARCH_MOVES = 24
+
 # Sweeps in a row that moved nothing before saying so out loud. Two full
 # direction cycles: a real edge flips once and the next sweep moves, so anything
 # past this means the map is not scrolling at all — something is covering it.
@@ -345,7 +365,7 @@ class ExplorationWorker(TaskWorker):
     def __init__(
         self,
         hwnd: int,
-        chapter_point: Optional[Tuple[int, int]] = None,
+        chapter: int = DEFAULT_CHAPTER,
         accept_wanted_quest: bool = False,
         raid_relay: bool = False,
         on_finished: Callback = None,
@@ -360,8 +380,13 @@ class ExplorationWorker(TaskWorker):
         self._tickets = TicketReader(self._control) if raid_relay else None
         self._raids = 0
 
-        chosen = tuple(chapter_point) if chapter_point else geometry.EXPLORATION_CHAPTER_POINT
-        self._chapter_point = self._geometry.point(chosen)
+        self._chapter = int(chapter)
+        self._chapters = ChapterList(self._control, self._geometry)
+        self._list_moves = 0
+        self._list_top = self._geometry.point(geometry.EXPLORATION_CHAPTER_DRAG_TOP)
+        self._list_bottom = self._geometry.point(geometry.EXPLORATION_CHAPTER_DRAG_BOTTOM)
+        self._main_tab = self._geometry.point(geometry.EXPLORATION_MAIN_TAB)
+        self._chapter_list = self._geometry.region(geometry.EXPLORATION_CHAPTER_LIST)
         self._drag_left = self._geometry.point(geometry.EXPLORATION_DRAG_LEFT)
         self._drag_right = self._geometry.point(geometry.EXPLORATION_DRAG_RIGHT)
         self._map_area = self._geometry.region(geometry.EXPLORATION_MAP_AREA)
@@ -393,17 +418,9 @@ class ExplorationWorker(TaskWorker):
 
     def run(self) -> None:
         logger.info(
-            "Exploration starting — chapter point=%s — %s",
-            self._chapter_point, self._control.describe(),
+            "Exploration starting — chapter %d — %s",
+            self._chapter, self._control.describe(),
         )
-        if not self._geometry.is_reference_size:
-            logger.warning(
-                "Client area is %dx%d but the chapter point was saved against "
-                "%dx%d — it has been scaled, which may not land where intended",
-                self._geometry.client_width,
-                self._geometry.client_height,
-                *geometry.REFERENCE_CLIENT_SIZE,
-            )
         self._begin_timing()
         try:
             self._loop()
@@ -799,20 +816,60 @@ class ExplorationWorker(TaskWorker):
         `raidEntry.png` is an opaque icon and holds up across backgrounds, but it
         missed one recorded frame at 0.758. No other screen scores above 0.53 on
         either, so taking the pair as an OR costs nothing.
+
+        Both did sink together on a live map, so the chapter list is the third:
+        see CHAPTER_LIST_THRESHOLD.
         """
         return (
             self._control.find(TPL_WORLD_MAP, WORLD_MAP_THRESHOLD) is not None
             or self._control.find(TPL_RAID_ENTRY, RAID_ENTRY_THRESHOLD) is not None
+            or self._control.find(TPL_CHAPTER_WORD, CHAPTER_LIST_THRESHOLD,
+                                  region=self._chapter_list) is not None
         )
 
     def _open_chapter(self) -> bool:
-        """Back on the world map, which means the chapter finished. Open it again."""
+        """Back on the world map, which means the chapter finished. Open it again.
+
+        Found by reading the chapter list rather than clicked at a saved point:
+        see :mod:`chapter_list`. Not in view, the list is dragged towards it and
+        read again on the next pass.
+        """
         if not self._on_world_map():
             return False
-        logger.info("On the world map — opening the chapter")
-        self._control.click(self._chapter_point)
-        self._sleep(AFTER_ENTER_SECONDS)
+        rows = self._chapters.read()
+        for number, point in rows:
+            if number == self._chapter:
+                logger.info("On the world map — opening Chapter %d", number)
+                self._control.click(point)
+                self._list_moves = 0
+                self._sleep(AFTER_ENTER_SECONDS)
+                return True
+        self._look_for_chapter([number for number, _ in rows])
         return True
+
+    def _look_for_chapter(self, in_view) -> None:
+        """Move the list one step towards the chapter, or give up on it."""
+        if self._list_moves >= CHAPTER_SEARCH_MOVES:
+            raise RuntimeError(
+                "Không tìm thấy Chương %d trong danh sách bên phải bản đồ — "
+                "chương này có thể chưa mở" % self._chapter)
+        self._list_moves += 1
+        if not in_view:
+            # Nothing readable: the Gameplay tab is showing its own list, or
+            # this one has not stopped moving. Main is harmless to press either
+            # way, and the settle covers the second case.
+            logger.info("Chapter list not readable — pressing the Main tab")
+            self._control.click(self._main_tab)
+            self._sleep(LIST_SETTLE_SECONDS)
+            return
+        towards_first = self._chapter < in_view[0]
+        start, end = ((self._list_top, self._list_bottom) if towards_first
+                      else (self._list_bottom, self._list_top))
+        logger.info("Chapter %d is not in view (%s) — scrolling the list %s",
+                    self._chapter, ", ".join(map(str, in_view)),
+                    "up" if towards_first else "down")
+        self._control.drag(start, end)
+        self._sleep(LIST_SETTLE_SECONDS)
 
     def _wait_it_out(self) -> None:
         """Nothing recognised: a battle, or a screen loading. Both pass."""

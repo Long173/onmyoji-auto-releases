@@ -219,12 +219,16 @@ EVENT_CLICK_POINT: Point = (1030, 549)
 EVENT_SHOP_PANEL: Region = ((170, 120), (930, 600))
 
 # --- Exploration (Tham hiem chuong) ------------------------------------------------
-# Where to click on the world map to open a chapter. The default is the row of
-# the chapter recorded being farmed, Chapter 28, in the list down the right of
-# the world map. It is a *setting* rather than a template per chapter because
-# the list scrolls: whatever the user picks is where it clicks, so a different
-# chapter needs no new artwork.
-EXPLORATION_CHAPTER_POINT: Point = (990, 417)
+# The chapter list down the right of the world map, read by chapter_list.py.
+# The chapter is chosen by number now; it used to be a point clicked blind, by
+# default Chapter 28's row, and opened whatever the list had scrolled under it.
+EXPLORATION_CHAPTER_LIST: Region = ((915, 150), (1121, 525))
+# A drag inside the list, top to bottom scrolls it towards Chapter 1. About
+# three chapters a drag; eleven took it from 28 to the top on a live list.
+EXPLORATION_CHAPTER_DRAG_TOP: Point = (1017, 267)
+EXPLORATION_CHAPTER_DRAG_BOTTOM: Point = (1017, 464)
+# The "Main" tab over the list. The other tab, "Gameplay", lists something else.
+EXPLORATION_MAIN_TAB: Point = (970, 165)
 
 # The two ends of a horizontal sweep across the exploration map, and the patch
 # of it that is compared before and after to tell whether the view moved.

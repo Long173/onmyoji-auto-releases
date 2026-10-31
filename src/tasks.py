@@ -558,8 +558,7 @@ def build_event_clicker(hwnd, control, config, on_finished, on_error):
 # ── Exploration ─────────────────────────────────────────────────────────────
 
 EXPLORATION_FIELDS = (
-    Field("chapter_point", POINT, "Chỗ nhấn vào chương",
-          default=geometry.EXPLORATION_CHAPTER_POINT),
+    Field("chapter", NUMBER, "Chương", default=28, minimum=1, maximum=28),
     Field("raid_relay", TOGGLE, "Đủ 30/30 vé thì đi phá kết giới",
           default=False),
     Field("", NOTE, "Tự đi ổ quái trong một chương: thấy ổ quái thì nhấn "
@@ -570,9 +569,9 @@ EXPLORATION_FIELDS = (
                     "xong chương. Đánh xong boss "
                     "game trả về màn chọn chương, tác vụ nhấn lại vào chương "
                     "cũ và chạy vòng mới. Độ khó (Normal/Hard) lấy theo cái "
-                    "bạn chọn tay lần cuối, tác vụ không đổi. Chỗ nhấn mặc "
-                    "định là dòng chương 28; farm chương khác thì chọn lại "
-                    "toạ độ. Nó không biết lúc nào hết sushi: hết thì nó cứ "
+                    "bạn chọn tay lần cuối, tác vụ không đổi. Chương được "
+                    "tìm theo số trong danh sách bên phải bản đồ, tự cuộn "
+                    "danh sách nếu chưa thấy. Nó không biết lúc nào hết sushi: hết thì nó cứ "
                     "nhấn mãi một ổ mà ổ không mất, và ghi cảnh báo vào log. "
                     "Số đếm là số ổ đã vào, không phải số trận thắng."),
     Field("", NOTE, "Bật \"đủ 30/30 vé\": mỗi lần quay về bảng chương, tác vụ "
@@ -597,9 +596,7 @@ def build_exploration(hwnd, control, config, on_finished, on_error):
 
     return exploration.ExplorationWorker(
         hwnd=hwnd,
-        chapter_point=as_point(
-            config["chapter_point"], geometry.EXPLORATION_CHAPTER_POINT
-        ),
+        chapter=int(config["chapter"]),
         accept_wanted_quest=config["wanted_invite"] == ACCEPT,
         raid_relay=as_bool(config["raid_relay"]),
         control=control,

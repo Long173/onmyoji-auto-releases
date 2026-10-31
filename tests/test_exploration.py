@@ -37,6 +37,22 @@ REFERENCE = geometry.REFERENCE_CLIENT_SIZE
 RECORDINGS = Path(__file__).resolve().parents[1] / "recordings" / "map"
 LIVE = Path(__file__).resolve().parents[1] / "recordings" / "map_live"
 
+# Where the chapter list rests: the last three chapters, 28 at the bottom. The
+# reader is replaced by FakeChapters in these tests; reading the real list is
+# test_chapter_list.py's job.
+CH26, CH27, CH28 = (990, 229), (990, 323), (990, 417)
+LIST_AT_THE_END = [(26, CH26), (27, CH27), (28, CH28)]
+
+
+class FakeChapters:
+    """Hands out list readings in turn; the last one repeats."""
+
+    def __init__(self, *readings):
+        self.readings = list(readings) or [LIST_AT_THE_END]
+
+    def read(self):
+        return self.readings.pop(0) if len(self.readings) > 1 else self.readings[0]
+
 
 class StubControl:
     """Answers ``find`` from a table the test sets up; records what it is told to do."""
@@ -146,6 +162,7 @@ def build(monkeypatch):
              appears_after=None, **kwargs):
         control = StubControl(size, seen, shots, gone_after, appears_after)
         worker = ExplorationWorker(hwnd=1, control=control, **kwargs)
+        worker._chapters = FakeChapters()
         worker.waits = []
         monkeypatch.setattr(worker, "_sleep", lambda s: worker.waits.append(s))
         worker.control = control
@@ -382,17 +399,69 @@ def test_the_world_map_opens_the_chapter_again(build):
 
     worker._step()
 
-    assert worker.control.clicks == [geometry.EXPLORATION_CHAPTER_POINT]
+    assert worker.control.clicks == [CH28]
 
 
-def test_the_chapter_point_can_be_moved(build):
-    """Farming a different chapter is a setting, not a new template."""
-    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)},
-                   chapter_point=(880, 229))
+def test_another_chapter_in_view_is_opened_by_its_number(build):
+    """Farming a different chapter is a number, not a point to pick."""
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=27)
 
     worker._step()
 
-    assert worker.control.clicks == [(880, 229)]
+    assert worker.control.clicks == [CH27]
+
+
+def test_a_lower_chapter_scrolls_the_list_towards_the_top(build):
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=13)
+    worker._chapters = FakeChapters(LIST_AT_THE_END, [(13, (990, 300))])
+
+    worker._step()
+    assert worker.control.clicks == []
+    assert worker.control.drags == [(geometry.EXPLORATION_CHAPTER_DRAG_TOP,
+                                     geometry.EXPLORATION_CHAPTER_DRAG_BOTTOM)]
+
+    worker._step()
+    assert worker.control.clicks == [(990, 300)]
+
+
+def test_a_higher_chapter_scrolls_the_list_towards_the_bottom(build):
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=28)
+    worker._chapters = FakeChapters([(1, (990, 200)), (2, (990, 290)), (3, (990, 380))])
+
+    worker._step()
+
+    assert worker.control.drags == [(geometry.EXPLORATION_CHAPTER_DRAG_BOTTOM,
+                                     geometry.EXPLORATION_CHAPTER_DRAG_TOP)]
+
+
+def test_an_unreadable_list_gets_the_main_tab_pressed(build):
+    """The Gameplay tab lists something else; nothing there reads as a chapter."""
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)})
+    worker._chapters = FakeChapters([])
+
+    worker._step()
+
+    assert worker.control.clicks == [geometry.EXPLORATION_MAIN_TAB]
+
+
+def test_a_chapter_never_found_ends_the_run_with_a_reason(build):
+    """Not unlocked yet: say so, rather than drag the list for ever."""
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=28)
+    worker._chapters = FakeChapters([(1, (990, 200)), (2, (990, 290))])
+
+    with pytest.raises(RuntimeError, match="Chương 28"):
+        for _ in range(exploration.CHAPTER_SEARCH_MOVES + 1):
+            worker._step()
+    assert len(worker.control.drags) == exploration.CHAPTER_SEARCH_MOVES
+
+
+def test_finding_the_chapter_resets_the_search(build):
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)})
+    worker._list_moves = exploration.CHAPTER_SEARCH_MOVES - 1
+
+    worker._step()
+
+    assert worker._list_moves == 0
 
 
 # ── the screen with no branch ───────────────────────────────────────────────
@@ -535,18 +604,6 @@ def test_a_drag_across_a_parallax_map_counts_as_movement():
 
 
 # ── the points ──────────────────────────────────────────────────────────────
-
-
-def test_a_saved_point_is_scaled_to_the_window(build):
-    """Points are stored against the reference size, not the window's own."""
-    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)},
-                   size=(REFERENCE[0] * 2, REFERENCE[1] * 2))
-
-    worker._step()
-
-    x, y = worker.control.clicks[0]
-    assert x == pytest.approx(geometry.EXPLORATION_CHAPTER_POINT[0] * 2, abs=2)
-    assert y == pytest.approx(geometry.EXPLORATION_CHAPTER_POINT[1] * 2, abs=2)
 
 
 def test_the_drag_stays_clear_of_the_fixed_furniture():
@@ -869,8 +926,8 @@ def test_the_world_map_is_recognised_by_either_signal(build):
     by_icon._step()
     by_tabs._step()
 
-    assert by_icon.control.clicks == [geometry.EXPLORATION_CHAPTER_POINT]
-    assert by_tabs.control.clicks == [geometry.EXPLORATION_CHAPTER_POINT]
+    assert by_icon.control.clicks == [CH28]
+    assert by_tabs.control.clicks == [CH28]
 
 
 # ── the Realm Raid button, on real strips ───────────────────────────────────
@@ -946,7 +1003,7 @@ def test_a_strip_without_realm_raid_does_not_match_it(name):
 # re-cut, and one that starts matching a state it is not in is the more
 # dangerous half.
 TRUTH = (
-    ("01_0000.0s.png", "world map", {"worldMap", "raidEntry"}),
+    ("01_0000.0s.png", "world map", {"worldMap", "raidEntry", "chapterWord"}),
     ("02_0017.6s.png", "chapter panel", {"explore"}),
     ("06_0022.9s.png", "map with a nest in view", {"onMap", "enemy"}),
     ("14_0031.7s.png", "victory, tap to continue", {"tapContinue"}),
@@ -955,7 +1012,8 @@ TRUTH = (
     ("43_0064.5s.png", "the boss badge on the map",
      {"bossFound", "onMap", "enemy", "boss"}),
     ("55_0077.4s.png", "a reward left on the map", {"mapReward", "onMap"}),
-    ("59_0083.4s.png", "back on the world map", {"worldMap", "raidEntry"}),
+    ("59_0083.4s.png", "back on the world map",
+     {"worldMap", "raidEntry", "chapterWord"}),
     # The frame that matters most: mid-battle, nothing to act on.
     ("21_0039.4s.png", "mid-battle", set()),
     ("62_0087.6s.png", "chapter panel again", {"explore"}),
@@ -973,8 +1031,8 @@ def templates():
     return found
 
 
-def test_all_ten_templates_ship(templates):
-    assert set(templates) == {"boss", "bossFound", "claimReward", "enemy",
+def test_all_eleven_templates_ship(templates):
+    assert set(templates) == {"boss", "bossFound", "chapterWord", "claimReward", "enemy",
                               "explore", "mapReward", "onMap", "raidEntry",
                               "tapContinue", "worldMap"}
 
@@ -1093,7 +1151,7 @@ def test_after_leaving_the_board_the_chapter_is_opened(build):
     worker._step()
 
     assert worker.control.clicks == [geometry.RAID_CLOSE_POINT,
-                                     geometry.EXPLORATION_CHAPTER_POINT]
+                                     CH28]
 
 
 @pytest.mark.parametrize("name, on_board", [
