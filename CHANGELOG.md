@@ -10,7 +10,7 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 - **Thám hiểm chương**: chọn chương trong danh sách thả xuống (mặc định
   Chương 28) thay cho "Chỗ nhấn vào chương"; tool tự cuộn danh sách bên
-  phải bản đồ để tìm.
+  phải bản đồ để tìm. Chương chưa mở trên tài khoản thì tool dừng và báo.
 
 ### Sửa
 

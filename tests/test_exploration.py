@@ -444,10 +444,52 @@ def test_an_unreadable_list_gets_the_main_tab_pressed(build):
     assert worker.control.clicks == [geometry.EXPLORATION_MAIN_TAB]
 
 
-def test_a_chapter_never_found_ends_the_run_with_a_reason(build):
-    """Not unlocked yet: say so, rather than drag the list for ever."""
+END_AT_21 = [(19, (990, 300)), (20, (990, 400)), (21, (990, 500))]
+
+
+def test_a_chapter_the_account_has_not_opened_stops_the_run_at_once(build):
+    """Chapter 28 asked for, the account is at 21: the list ends at 19-21.
+
+    The run ends as soon as two drags have left the list where it was, with
+    the reason in words — not after dragging the length of the search.
+    """
     worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=28)
-    worker._chapters = FakeChapters([(1, (990, 200)), (2, (990, 290))])
+    worker._chapters = FakeChapters(END_AT_21)
+
+    with pytest.raises(RuntimeError, match="Chương 28 chưa mở.*Chương 21"):
+        for _ in range(exploration.CHAPTER_SEARCH_MOVES):
+            worker._step()
+    assert len(worker.control.drags) == exploration.END_OF_LIST_DRAGS
+    assert worker.control.clicks == []
+
+
+def test_one_drag_the_game_did_not_take_is_not_the_end(build):
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=24)
+    worker._chapters = FakeChapters(END_AT_21, END_AT_21,
+                                    [(22, (990, 300)), (23, (990, 400)), (24, (990, 500))])
+
+    for _ in range(3):
+        worker._step()
+
+    assert worker.control.clicks == [(990, 500)]
+
+
+def test_drags_withheld_for_the_cursor_do_not_count_as_the_end(build):
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=28)
+    worker._chapters = FakeChapters(END_AT_21)
+    worker.control.dragging = False
+
+    for _ in range(5):
+        worker._step()
+
+    assert worker._still_drags == 0
+
+
+def test_a_chapter_never_found_ends_the_run_with_a_reason(build):
+    """A list that keeps moving and never shows it still has to end."""
+    worker = build(seen={exploration.TPL_WORLD_MAP: (990, 417)}, chapter=28)
+    views = [[(1, (990, 200)), (2, (990, 290))], [(3, (990, 200)), (4, (990, 290))]]
+    worker._chapters.read = lambda: views.append(views.pop(0)) or views[-1]
 
     with pytest.raises(RuntimeError, match="Chương 28"):
         for _ in range(exploration.CHAPTER_SEARCH_MOVES + 1):

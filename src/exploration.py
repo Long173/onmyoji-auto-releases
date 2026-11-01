@@ -298,6 +298,12 @@ LIST_SETTLE_SECONDS = 1.2
 # up. The whole list is eleven drags end to end, so this is room for one full
 # pass each way; past it the chapter is not in the list — not unlocked yet.
 CHAPTER_SEARCH_MOVES = 24
+# Drags in a row that left the list reading exactly as before. The list has an
+# end, and an account only lists the chapters it has opened: one that has
+# reached Chapter 21 shows 19, 20, 21 at the bottom however hard it is dragged.
+# Two rather than one, so a single drag the game did not take is not mistaken
+# for the end.
+END_OF_LIST_DRAGS = 2
 
 # Sweeps in a row that moved nothing before saying so out loud. Two full
 # direction cycles: a real edge flips once and the next sweep moves, so anything
@@ -383,7 +389,11 @@ class ExplorationWorker(TaskWorker):
         self._chapter = int(chapter)
         self._chapters = ChapterList(self._control, self._geometry)
         self._list_moves = 0
-        self._list_top = self._geometry.point(geometry.EXPLORATION_CHAPTER_DRAG_TOP)
+        # The reading before the last drag, and how many drags in a row have
+        # left it unchanged. See END_OF_LIST_DRAGS.
+        self._last_view: Optional[list] = None
+        self._still_drags = 0
+        self._list_top =self._geometry.point(geometry.EXPLORATION_CHAPTER_DRAG_TOP)
         self._list_bottom = self._geometry.point(geometry.EXPLORATION_CHAPTER_DRAG_BOTTOM)
         self._main_tab = self._geometry.point(geometry.EXPLORATION_MAIN_TAB)
         self._chapter_list = self._geometry.region(geometry.EXPLORATION_CHAPTER_LIST)
@@ -842,6 +852,7 @@ class ExplorationWorker(TaskWorker):
                 logger.info("On the world map — opening Chapter %d", number)
                 self._control.click(point)
                 self._list_moves = 0
+                self._last_view, self._still_drags = None, 0
                 self._sleep(AFTER_ENTER_SECONDS)
                 return True
         self._look_for_chapter([number for number, _ in rows])
@@ -860,16 +871,46 @@ class ExplorationWorker(TaskWorker):
             # way, and the settle covers the second case.
             logger.info("Chapter list not readable — pressing the Main tab")
             self._control.click(self._main_tab)
+            self._last_view, self._still_drags = None, 0
             self._sleep(LIST_SETTLE_SECONDS)
             return
+        self._stop_at_the_end_of_the_list(in_view)
         towards_first = self._chapter < in_view[0]
         start, end = ((self._list_top, self._list_bottom) if towards_first
                       else (self._list_bottom, self._list_top))
         logger.info("Chapter %d is not in view (%s) — scrolling the list %s",
                     self._chapter, ", ".join(map(str, in_view)),
                     "up" if towards_first else "down")
-        self._control.drag(start, end)
+        if self._control.drag(start, end):
+            self._last_view = list(in_view)
+        else:
+            # Withheld for the player's cursor: the list was not asked to move,
+            # so its standing still says nothing about where it ends.
+            self._last_view, self._still_drags = None, 0
         self._sleep(LIST_SETTLE_SECONDS)
+
+    def _stop_at_the_end_of_the_list(self, in_view) -> None:
+        """End the run if dragging has stopped moving the list short of the chapter.
+
+        Asked to run Chapter 28 on an account that has opened up to Chapter 21,
+        the list ends at 19, 20, 21 and nothing will bring 28 into view. Said
+        plainly and at once, rather than dragging for the length of
+        CHAPTER_SEARCH_MOVES and then giving a vaguer reason.
+        """
+        if self._last_view is not None and list(in_view) == self._last_view:
+            self._still_drags += 1
+        else:
+            self._still_drags = 0
+        if self._still_drags < END_OF_LIST_DRAGS:
+            return
+        if self._chapter > in_view[-1]:
+            raise RuntimeError(
+                "Chương %d chưa mở trên tài khoản này — danh sách chỉ tới "
+                "Chương %d. Chọn chương đã mở rồi bấm Bắt đầu lại."
+                % (self._chapter, in_view[-1]))
+        raise RuntimeError(
+            "Không cuộn được danh sách chương tới Chương %d — danh sách đứng ở "
+            "Chương %d–%d." % (self._chapter, in_view[0], in_view[-1]))
 
     def _wait_it_out(self) -> None:
         """Nothing recognised: a battle, or a screen loading. Both pass."""
