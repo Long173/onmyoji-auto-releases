@@ -36,7 +36,8 @@ class ConfigPanel(QtWidgets.QWidget):
 
     def __init__(self, spec: tasks.TaskSpec, config: Dict[str, object],
                  frame_source: Optional[Callable[[], Optional[Any]]] = None,
-                 parent: Optional[QtWidgets.QWidget] = None) -> None:
+                 parent: Optional[QtWidgets.QWidget] = None,
+                 windows: Optional[Callable[[], Any]] = None) -> None:
         super().__init__(parent)
         self.spec = spec
         # The width is held by the scroll area around this, not here: a fixed
@@ -53,6 +54,7 @@ class ConfigPanel(QtWidgets.QWidget):
             form = FieldForm(
                 spec.shared_fields, fields.values_of(spec.shared_fields, config),
                 frame_source=frame_source,
+                windows=windows,
             )
             form.changed.connect(
                 lambda key, value: self.optionChanged.emit(spec.id, key, value)
@@ -449,7 +451,8 @@ class TaskView(QtWidgets.QWidget):
 
         row = hbox(0)
 
-        panel = ConfigPanel(spec, config, frame_source=self._any_frame)
+        panel = ConfigPanel(spec, config, frame_source=self._any_frame,
+                            windows=self._picker_windows)
         panel.optionChanged.connect(self.optionChanged)
         self._config_scroll = self._scrolling(panel)
         row.addWidget(self._config_scroll)
@@ -468,6 +471,17 @@ class TaskView(QtWidgets.QWidget):
             if frame is not None:
                 return frame
         return None
+
+    def _picker_windows(self) -> List[Any]:
+        """Every open game window a point can be picked on, as (name, capture).
+
+        Named as on its card — title and handle — because several windows share
+        one title. Those running this task come first, in the order the page
+        shows them; the picker starts on the first that can be photographed.
+        """
+        return [("%s · %s" % (session.title, session.window.handle_text),
+                 session.preview_frame)
+                for session in list(self._chosen) + list(self._others)]
 
     @staticmethod
     def _scrolling(panel: QtWidgets.QWidget) -> QtWidgets.QScrollArea:

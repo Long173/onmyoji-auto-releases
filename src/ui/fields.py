@@ -7,7 +7,8 @@ drift into looking like different products.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple
+import logging
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -18,6 +19,8 @@ from ui import controls
 from ui.primitives import text_width
 from ui.primitives import (Divider, FlowLayout, body_text, hbox, label,
                           section_label, vbox)
+
+logger = logging.getLogger(__name__)
 
 # Inside padding of a POINT_LIST's list box. Qt counts it into frameWidth(),
 # which is what the list's height is worked out from.
@@ -37,8 +40,12 @@ class FieldForm(QtWidgets.QWidget):
         spacing: int = 18,
         frame_source: Optional[Callable[[], Optional[Any]]] = None,
         parent: Optional[QtWidgets.QWidget] = None,
+        windows: Optional[Callable[[], Sequence[Any]]] = None,
     ) -> None:
         super().__init__(parent)
+        # The open game windows a point can be picked on, asked for each time
+        # the picker opens — windows come and go while the page stays up.
+        self._windows = windows
         self._notes = dict(notes or {})
         # Only a POINT field uses this: it needs a picture of the game window to
         # pick a position off. Left None the picker still opens and says it
@@ -171,6 +178,7 @@ class FieldForm(QtWidgets.QWidget):
 
             chosen = choose_point(
                 state["point"], self._capture, default, self,
+                windows=self._open_windows(),
                 title=field.label or "Chọn chỗ tự nhấn",
             )
             if chosen is None or chosen == state["point"]:
@@ -325,7 +333,8 @@ class FieldForm(QtWidgets.QWidget):
             from ui.point_picker import choose_point
 
             return choose_point(start, self._capture, start, self, title=title,
-                                marks=marks(skip), label=str(number))
+                                marks=marks(skip), label=str(number),
+                                windows=self._open_windows())
 
         def marks(skip: int):
             """Every point already in the round, labelled as the list shows it.
@@ -397,6 +406,16 @@ class FieldForm(QtWidgets.QWidget):
         if hint is not None:
             block.addWidget(hint)
         return holder
+
+    def _open_windows(self) -> Sequence[Any]:
+        """(name, capture) for each open game window, or none to choose from."""
+        if self._windows is None:
+            return ()
+        try:
+            return tuple(self._windows())
+        except Exception:  # noqa: BLE001 - fall back to the single source
+            logger.debug("Could not list the game windows", exc_info=True)
+            return ()
 
     def _capture(self) -> Optional[Any]:
         if self._frame_source is None:

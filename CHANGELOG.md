@@ -15,6 +15,8 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
   điểm đã chọn kèm số thứ tự (C là chỗ nhấn chính).
 - **Event**: danh sách điểm nhấn thêm giãn theo số điểm, không còn khung
   cuộn nhỏ; bỏ cảnh báo vùng bảng mua.
+- **Chọn điểm trên màn hình**: mở nhiều cửa sổ game thì chọn được lấy ảnh
+  từ cửa sổ nào (kể cả giả lập), ở mọi chỗ có chọn điểm.
 
 ### Sửa
 

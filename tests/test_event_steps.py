@@ -435,3 +435,38 @@ def test_the_list_gets_taller_as_steps_are_added(form):
         _buttons(made)["Thêm điểm"].click()
 
     assert _listing(made).height() > short
+
+
+# ── which window to pick on ─────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("button", ["Chọn trên màn hình", "Thêm điểm"])
+def test_both_pickers_on_the_page_offer_the_open_windows(qt_app, monkeypatch, button):
+    """The main point and the added points alike: every place a point is picked."""
+    from ui import fields as fields_module
+    from ui import point_picker
+
+    asked = []
+    monkeypatch.setattr(point_picker, "choose_point",
+                        lambda *a, **k: asked.append(k) or None)
+    open_windows = [("Onmyoji · HWND 0x00000001", lambda: None),
+                    ("Onmyoji · HWND 0x00000002", lambda: None)]
+    spec = tasks.get("event")
+    made = fields_module.FieldForm(spec.shared_fields, spec.defaults(),
+                                   windows=lambda: open_windows)
+
+    _buttons(made)[button].click()
+
+    assert list(asked[-1]["windows"]) == open_windows
+
+
+def test_the_task_page_names_each_window_as_its_card_does(dashboard):
+    from ui.task_view import ConfigPanel, TaskView
+
+    dashboard._show_page("event")
+    view = next(v for v in dashboard.findChildren(TaskView)
+                if any(p.spec.id == "event" for p in v.findChildren(ConfigPanel)))
+    names = [name for name, _capture in view._picker_windows()]
+
+    assert names, "no windows offered"
+    assert all("HWND 0x" in name or "ADB" in name for name in names), names

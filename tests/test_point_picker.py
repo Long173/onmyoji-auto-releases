@@ -269,3 +269,69 @@ def test_without_marks_the_picker_draws_what_it_always_did(qt_app):
     after = rendered(_Canvas(pixmap, (50, 50), max_size=(400, 300), marks=()))
 
     assert before == after
+
+
+# ── which window the picture comes from ─────────────────────────────────────
+
+
+def coloured(value):
+    import numpy as np
+
+    return np.full((REFERENCE[1], REFERENCE[0], 3), value, dtype=np.uint8)
+
+
+def test_with_several_windows_the_player_chooses_which(qt_app):
+    from PyQt5 import QtWidgets
+
+    windows = [("陰陽師Onmyoji · HWND 0x00000001", lambda: coloured(40)),
+               ("陰陽師Onmyoji · HWND 0x00000002", lambda: coloured(200))]
+    dialog = PointPicker((10, 10), lambda: None, geometry.EVENT_CLICK_POINT,
+                         windows=windows)
+    try:
+        box = dialog.findChild(QtWidgets.QComboBox, "windowChoice")
+        assert [box.itemText(i) for i in range(box.count())] == [n for n, _ in windows]
+        assert QtGui.QColor(dialog._canvas._pixmap.toImage().pixel(5, 5)).red() < 100
+
+        box.setCurrentIndex(1)
+
+        assert QtGui.QColor(dialog._canvas._pixmap.toImage().pixel(5, 5)).red() > 150
+        assert dialog.point() == (10, 10), "switching window moved the point"
+    finally:
+        dialog.deleteLater()
+
+
+def test_the_picker_starts_on_the_first_window_it_can_photograph(qt_app):
+    """A minimised window gives nothing; starting on it would show a blank."""
+    from PyQt5 import QtWidgets
+
+    windows = [("A · minimised", lambda: None), ("B", lambda: coloured(200))]
+    dialog = PointPicker((10, 10), lambda: None, geometry.EVENT_CLICK_POINT,
+                         windows=windows)
+    try:
+        assert dialog.findChild(QtWidgets.QComboBox, "windowChoice").currentIndex() == 1
+        assert dialog._canvas is not None
+    finally:
+        dialog.deleteLater()
+
+
+def test_one_window_needs_no_choice(qt_app):
+    from PyQt5 import QtWidgets
+
+    dialog = PointPicker((10, 10), lambda: None, geometry.EVENT_CLICK_POINT,
+                         windows=[("only", lambda: coloured(90))])
+    try:
+        assert dialog.findChild(QtWidgets.QComboBox, "windowChoice") is None
+        assert dialog._canvas is not None
+    finally:
+        dialog.deleteLater()
+
+
+def test_a_window_that_fails_to_capture_is_skipped():
+    from ui.point_picker import first_capturable
+
+    def broken():
+        raise RuntimeError("window closed")
+
+    assert first_capturable([("x", broken), ("y", lambda: None), ("z", lambda: 1)]) == 2
+    assert first_capturable([("x", lambda: None)]) == 0
+    assert first_capturable([]) == 0

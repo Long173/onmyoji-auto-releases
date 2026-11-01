@@ -47,6 +47,24 @@ MAIN_MARK = "C"
 BADGE_RADIUS = 11
 BADGE_OFFSET = 15
 
+# An open game window the picture can come from: (name as on its card, capture).
+Window = Tuple[str, Callable[[], Optional[Any]]]
+
+
+def first_capturable(windows: Sequence[Window]) -> int:
+    """Index of the first window that gives a picture; 0 if none does.
+
+    Minimised windows give nothing, and starting the picker on a blank one
+    would make the player hunt for the window that works.
+    """
+    for index, (_name, source) in enumerate(windows):
+        try:
+            if source() is not None:
+                return index
+        except Exception:  # noqa: BLE001 - a dead window is just skipped
+            continue
+    return 0
+
 # The picture is never drawn bigger than the frame itself — magnifying the whole
 # thing would only blur it, and the loupe already covers close work.
 MAX_CANVAS = (1122, 633)
@@ -315,7 +333,8 @@ class PointPicker(QtWidgets.QDialog):
                  parent: Optional[QtWidgets.QWidget] = None,
                  title: str = "Chọn chỗ tự nhấn",
                  marks: Sequence[Mark] = (),
-                 label: str = "") -> None:
+                 label: str = "",
+                 windows: Sequence[Window] = ()) -> None:
         super().__init__(parent)
         self._marks = tuple(marks)
         self._label = label
@@ -323,6 +342,15 @@ class PointPicker(QtWidgets.QDialog):
         self.setModal(True)
         self.setStyleSheet("QDialog { background: %s; }" % theme.WINDOW)
 
+        # Which game window the picture comes from. With several open, the
+        # first that can be photographed is where it starts — what the picker
+        # always did — and the player can switch to any other. Every window is
+        # resized to the same client size before a task runs, so a point picked
+        # on one presses the same place on all of them.
+        self._windows = tuple(windows)
+        self._window_index = first_capturable(self._windows)
+        if self._windows:
+            frame_source = self._windows[self._window_index][1]
         self._frame_source = frame_source
         self._default = default
         self._point = point
@@ -347,6 +375,9 @@ class PointPicker(QtWidgets.QDialog):
                 12.5, theme.TEXT_MUTED, justify=True,
             ))
         self._column.addSpacing(14)
+        if len(self._windows) > 1:
+            self._column.addLayout(self._build_window_choice())
+            self._column.addSpacing(12)
 
         self._holder = QtWidgets.QWidget()
         self._holder_box = vbox(0)
@@ -365,6 +396,38 @@ class PointPicker(QtWidgets.QDialog):
         self._show_point(*self._point)
 
     # ── construction ────────────────────────────────────────────────────────
+
+    def _build_window_choice(self) -> QtWidgets.QHBoxLayout:
+        """"Cửa sổ" and a drop-down of the open game windows, named as on their cards."""
+        row = hbox(10)
+        row.addWidget(label("CỬA SỔ", theme.mono(10, tracking=0.18), theme.TEXT_LABEL))
+        box = QtWidgets.QComboBox()
+        box.setObjectName("windowChoice")
+        box.addItems([name for name, _source in self._windows])
+        box.setCurrentIndex(self._window_index)
+        box.setFont(theme.body(13))
+        box.setFixedHeight(32)
+        box.setStyleSheet(
+            "QComboBox { background: %s; border: 1px solid %s; border-radius: %dpx;"
+            " padding: 0 8px; color: %s; }"
+            "QComboBox:focus { border-color: %s; }"
+            "QComboBox QAbstractItemView { background: %s; color: %s;"
+            " selection-background-color: %s; outline: 0; }"
+            % (theme.INSET, theme.CONTROL, theme.RADIUS, theme.TEXT, theme.ACCENT,
+               theme.CARD, theme.TEXT, theme.ACCENT_FILL)
+        )
+        box.currentIndexChanged.connect(self._switch_window)
+        row.addWidget(box, 1)
+        self._window_box = box
+        return row
+
+    def _switch_window(self, index: int) -> None:
+        """Photograph the chosen window instead. The point picked so far stays."""
+        if not 0 <= index < len(self._windows):
+            return
+        self._window_index = index
+        self._frame_source = self._windows[index][1]
+        self._recapture()
 
     def _build_readout(self) -> QtWidgets.QWidget:
         holder = QtWidgets.QWidget()
@@ -504,15 +567,18 @@ def choose_point(point: Tuple[int, int],
                  parent: Optional[QtWidgets.QWidget] = None,
                  title: str = "Chọn chỗ tự nhấn",
                  marks: Sequence[Mark] = (),
-                 label: str = ""
+                 label: str = "",
+                 windows: Sequence[Window] = ()
                  ) -> Optional[Tuple[int, int]]:
     """Run the picker. Returns the chosen point, or None if cancelled.
 
     ``marks`` are points already chosen, drawn numbered on the frame;
-    ``label`` is the number the point being picked will go by.
+    ``label`` is the number the point being picked will go by. ``windows``
+    are the open game windows to choose the picture from; with none,
+    ``frame_source`` is the picture.
     """
     dialog = PointPicker(point, frame_source, default, parent,
-                         title, marks, label)
+                         title, marks, label, windows)
     if dialog.exec_() != QtWidgets.QDialog.Accepted:
         return None
     return dialog.point()
