@@ -11,8 +11,6 @@ parts pinned are the ones that cost something when wrong:
   sequence clicked out of order is a different sequence.
 * **A step is held, never skipped.** A press withheld because the cursor was
   over the game is retried, so the next press is never one step ahead.
-* **A point inside the shop panel is flagged.** An added point is placed by
-  hand, usually mid-screen, which is where the jade purchase buttons are.
 * **The stored text survives what the settings store does to it.** The
   registry hands comma-separated values back as lists of strings.
 """
@@ -324,21 +322,13 @@ def test_repicking_replaces_only_that_point(form):
     assert made.emitted[-1] == ("extra_steps", "1,1,1.0;9,9,3.0")
 
 
-def test_a_point_inside_the_shop_panel_is_flagged_in_the_list(form):
-    """Mid-screen is where the jade purchase buttons are when tickets run out."""
+def test_the_list_carries_no_warning(form):
+    """Mid-screen points used to be flagged; taken out at the owner's request."""
     made = form("1050,560,2;500,300,2")
     listing = _listing(made)
 
-    assert "⚠" not in listing.item(0).text()
-    assert "⚠" in listing.item(1).text()
-
-
-def test_the_picker_is_told_about_the_shop_panel(form):
-    made = form("")
-    made.picks.append((10, 20))
-    _buttons(made)["Thêm điểm"].click()
-
-    assert made.asked[-1]["danger"] == geometry.EVENT_SHOP_PANEL
+    assert [listing.item(i).text() for i in range(2)] == [
+        "1.  1050, 560  ·  2 giây", "2.  500, 300  ·  2 giây"]
 
 
 # ── through the app: saved, reloaded, handed to the worker ──────────────────
@@ -409,3 +399,39 @@ def test_the_main_point_shown_is_the_one_on_the_page_now(form):
     _buttons(made)["Thêm điểm"].click()
 
     assert made.asked[-1]["marks"][0] == ("C", (640, 480))
+
+
+@pytest.mark.parametrize("count", [1, 3, 8, 20])
+def test_the_list_grows_to_show_every_step_without_scrolling(form, count):
+    """A box a few rows tall with scrollbars inside the page was what this replaced.
+
+    At the width the task page gives its settings column, with the widest
+    numbers a row can carry.
+    """
+    from ui import task_view
+
+    stored = ";".join("%d,%d,60" % (1045 - i, 565 - i) for i in range(count))
+    made = form(stored)
+    made.resize(task_view.CONFIG_WIDTH, 2000)
+    made.show()
+    try:
+        listing = _listing(made)
+        assert listing.count() == count
+        assert listing.verticalScrollBar().maximum() == 0, "it scrolls inside"
+        last = listing.visualItemRect(listing.item(count - 1))
+        assert last.bottom() <= listing.viewport().rect().bottom(), "last row cut off"
+        widest = max(listing.fontMetrics().horizontalAdvance(listing.item(i).text())
+                     for i in range(count))
+        assert widest < listing.viewport().width(), "a row's text runs off the side"
+    finally:
+        made.close()
+
+
+def test_the_list_gets_taller_as_steps_are_added(form):
+    made = form("1,1,1")
+    short = _listing(made).height()
+    made.picks.extend([(2, 2), (3, 3), (4, 4)])
+    for _ in range(3):
+        _buttons(made)["Thêm điểm"].click()
+
+    assert _listing(made).height() > short

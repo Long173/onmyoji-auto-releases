@@ -190,66 +190,16 @@ def blank_frame(size=REFERENCE):
     return np.zeros((size[1], size[0], 3), dtype=np.uint8)
 
 
-def picker(qt_app, point, frame=None, danger=geometry.EVENT_SHOP_PANEL):
-    """The picker as the event field configures it — danger zone included.
-
-    The zone is a property of the field asking for the point, not of the dialog,
-    so it has to be passed in the same way the app passes it. A picker built
-    without one warns about nothing, which is what a chapter row wants.
-    """
-    return PointPicker(point, lambda: frame, geometry.EVENT_CLICK_POINT,
-                       danger=danger,
-                       danger_note="... nút mua bằng ngọc ...")
+def picker(qt_app, point, frame=None):
+    return PointPicker(point, lambda: frame, geometry.EVENT_CLICK_POINT)
 
 
-def test_the_default_point_raises_no_warning(qt_app):
-    """It was chosen to sit outside the shop panel; say so in a test."""
-    dialog = picker(qt_app, geometry.EVENT_CLICK_POINT, blank_frame())
-    assert not dialog._warning.isVisible()
-    dialog.deleteLater()
-
-
-def test_a_point_inside_the_shop_panel_warns(qt_app):
-    """Where the buy buttons appear once the tickets run out."""
-    (x1, y1), (x2, y2) = geometry.EVENT_SHOP_PANEL
-    middle = ((x1 + x2) // 2, (y1 + y2) // 2)
-    dialog = picker(qt_app, middle, blank_frame())
-    dialog.show()
+def test_the_picker_carries_no_warning(qt_app):
+    """Taken out at the owner's request: where to press is the player's call."""
+    dialog = picker(qt_app, (550, 300), blank_frame())
     try:
-        assert dialog._warning.isVisible(), (
-            "no warning for %s, which is inside the shop panel %s"
-            % (middle, geometry.EVENT_SHOP_PANEL)
-        )
-        assert "ngọc" in dialog._warning.text()
+        assert not hasattr(dialog, "_warning")
     finally:
-        dialog.close()
-        dialog.deleteLater()
-
-
-def test_a_picker_with_no_danger_zone_never_warns(qt_app):
-    """A chapter row is not near anything that spends money."""
-    (x1, y1), (x2, y2) = geometry.EVENT_SHOP_PANEL
-    dialog = picker(qt_app, ((x1 + x2) // 2, (y1 + y2) // 2), blank_frame(),
-                    danger=None)
-    dialog.show()
-    try:
-        assert not dialog._warning.isVisible()
-    finally:
-        dialog.close()
-        dialog.deleteLater()
-
-
-def test_the_warning_follows_the_point_as_it_moves(qt_app):
-    (x1, y1), (x2, y2) = geometry.EVENT_SHOP_PANEL
-    dialog = picker(qt_app, geometry.EVENT_CLICK_POINT, blank_frame())
-    dialog.show()
-    try:
-        dialog._set_point(((x1 + x2) // 2, (y1 + y2) // 2))
-        assert dialog._warning.isVisible()
-        dialog._set_point(geometry.EVENT_CLICK_POINT)
-        assert not dialog._warning.isVisible()
-    finally:
-        dialog.close()
         dialog.deleteLater()
 
 

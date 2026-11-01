@@ -13,6 +13,8 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
   phải bản đồ để tìm. Chương chưa mở trên tài khoản thì tool dừng và báo.
 - **Event**: khi thêm hoặc chọn lại điểm nhấn thêm, ảnh chụp hiện sẵn các
   điểm đã chọn kèm số thứ tự (C là chỗ nhấn chính).
+- **Event**: danh sách điểm nhấn thêm giãn theo số điểm, không còn khung
+  cuộn nhỏ; bỏ cảnh báo vùng bảng mua.
 
 ### Sửa
 

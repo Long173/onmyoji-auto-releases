@@ -83,14 +83,6 @@ class Field:
     # shared by every window running the task. These render on each window's
     # card instead of the task's config panel.
     per_window: bool = False
-    # POINT only. A box on the screen where a stray click does something the
-    # user did not ask for, and the sentence to show when the chosen point falls
-    # inside it. Per field rather than global: the event clicker's danger is the
-    # ticket shop, which has nothing to do with any other point the app asks for
-    # — a picker that warned about buying event tickets while someone was
-    # choosing a chapter row would be telling them something untrue.
-    danger_zone: Any = None
-    danger_note: str = ""
     # ``(key, value)``: this control is greyed out while that other field holds
     # that value. Lets "run forever" switch off the count it would ignore,
     # rather than leaving a live-looking number that does nothing.
@@ -512,17 +504,10 @@ def build_demon_parade(hwnd, control, config, on_finished, on_error):
 # ── Event ───────────────────────────────────────────────────────────────────
 
 EVENT_FIELDS = (
-    Field("click_point", POINT, "Chỗ tự nhấn", default=geometry.EVENT_CLICK_POINT,
-          danger_zone=geometry.EVENT_SHOP_PANEL,
-          danger_note="Điểm này nằm trong vùng bảng bán vé hiện ra khi hết vé — "
-                      "nhấn vào đó có thể bấm nhầm nút mua bằng ngọc. Nên chọn "
-                      "chỗ ngoài vùng giữa màn hình."),
+    Field("click_point", POINT, "Chỗ tự nhấn", default=geometry.EVENT_CLICK_POINT),
     Field("interval", NUMBER, "Nhấn mỗi", default=2, minimum=1, maximum=10,
           suffix=" giây"),
-    Field("extra_steps", POINT_LIST, "Nhấn thêm sau đó (tuỳ chọn)", default="",
-          danger_zone=geometry.EVENT_SHOP_PANEL,
-          danger_note="Điểm này nằm trong vùng bảng bán vé hiện ra khi hết vé — "
-                      "nhấn vào đó có thể bấm nhầm nút mua bằng ngọc."),
+    Field("extra_steps", POINT_LIST, "Nhấn thêm sau đó (tuỳ chọn)", default=""),
     Field("", NOTE, "Thêm điểm nếu màn event cần nhấn ở chỗ khác nữa (một tab, "
                     "một nút xác nhận…): tool nhấn chỗ chính, chờ, rồi lần lượt "
                     "từng điểm thêm, mỗi điểm chờ số giây riêng, xong lại từ "
@@ -532,12 +517,8 @@ EVENT_FIELDS = (
                     "(Challenge, Fight…) nên không thể nhận diện theo chữ, còn "
                     "vị trí nút thì không đổi — ở màn event cú nhấn đó vào "
                     "trận, ở màn kết thúc nó là cú chạm tắt bảng, đang đánh "
-                    "thì nó rơi vào chỗ vô hại. Đổi lại, nó không biết lúc nào "
-                    "hết vé: hết vé thì game mở bảng bán vé bằng ngọc, chỗ "
-                    "nhấn mặc định nằm ngoài bảng đó nên chỉ tắt bảng, nhưng "
-                    "chỗ nhấn đặt vào giữa màn hình — kể cả điểm thêm — thì có "
-                    "thể bấm nhầm nút mua. Số đếm là số lần nhấn, không phải "
-                    "số trận."),
+                    "thì nó rơi vào chỗ vô hại. Nó không biết lúc nào hết vé. "
+                    "Số đếm là số lần nhấn, không phải số trận."),
 )
 
 

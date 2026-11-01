@@ -44,9 +44,10 @@ the one point does not reach — a tab, a confirm — and the player can add
 points after the main one, each with its own wait (contributed as a task of its
 own, "Nhấn theo chuỗi", and folded in here: it is this loop with a list). A
 round is the main point, then each added point in order; with none added this
-is the one point on its cadence, unchanged. The shop panel matters more here,
-not less: an added point is placed by hand, usually mid-screen, so the picker
-and the list both flag one that sits inside the panel.
+is the one point on its cadence, unchanged. An added point is placed by hand,
+usually mid-screen, which is where the shop panel's buy buttons are; the app
+used to flag such points and no longer does, at the owner's request — it is the
+player's call where to press.
 
 The one thing it does read is a co-op Wanted Quest invite. That dialog is
 somebody else's doing, it covers the screen and swallows every click underneath

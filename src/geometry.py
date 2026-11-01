@@ -209,15 +209,6 @@ PARADE_THROW_STEP = 95
 # purchase button. Anyone moving this point should stay out of that band.
 EVENT_CLICK_POINT: Point = (1030, 549)
 
-# Where the out-of-tickets shop panel sits, from a capture of it: two panels
-# side by side with "buy" buttons priced in jade. The picker warns when the
-# chosen point falls inside this box, because a point in here spends money the
-# first time a run is attempted with an empty ticket count.
-#
-# Measured on one event only — treat it as "known to be dangerous here", not as
-# the full extent of what a stray click can reach.
-EVENT_SHOP_PANEL: Region = ((170, 120), (930, 600))
-
 # --- Exploration (Tham hiem chuong) ------------------------------------------------
 # The chapter list down the right of the world map, read by chapter_list.py.
 # The chapter is chosen by number now; it used to be a point clicked blind, by

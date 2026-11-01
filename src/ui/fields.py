@@ -19,6 +19,10 @@ from ui.primitives import text_width
 from ui.primitives import (Divider, FlowLayout, body_text, hbox, label,
                           section_label, vbox)
 
+# Inside padding of a POINT_LIST's list box. Qt counts it into frameWidth(),
+# which is what the list's height is worked out from.
+LIST_PADDING = 4
+
 
 class FieldForm(QtWidgets.QWidget):
     """A column of controls built from ``fields``, seeded from ``values``."""
@@ -167,8 +171,6 @@ class FieldForm(QtWidgets.QWidget):
 
             chosen = choose_point(
                 state["point"], self._capture, default, self,
-                danger=field.danger_zone,
-                danger_note=field.danger_note,
                 title=field.label or "Chọn chỗ tự nhấn",
             )
             if chosen is None or chosen == state["point"]:
@@ -221,13 +223,18 @@ class FieldForm(QtWidgets.QWidget):
         listing.setObjectName("pointList")
         listing.setFont(theme.tabular(13))
         listing.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        listing.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
+        # Never a scroll box inside the page: the list grows to hold every step
+        # (twenty at most) and the page scrolls instead. A list a few rows tall
+        # with its own scrollbars, both ways, was what players got before.
+        listing.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        listing.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        listing.setTextElideMode(QtCore.Qt.ElideRight)
         listing.setStyleSheet(
             "QListWidget { background: %s; border: 1px solid %s; border-radius: %dpx;"
-            " color: %s; padding: 4px; outline: 0; }"
+            " color: %s; padding: %dpx; outline: 0; }"
             "QListWidget::item { padding: 5px 8px; border-radius: %dpx; }"
             "QListWidget::item:selected { background: %s; color: %s; }"
-            % (theme.INSET, theme.CONTROL, theme.RADIUS, theme.TEXT,
+            % (theme.INSET, theme.CONTROL, theme.RADIUS, theme.TEXT, LIST_PADDING,
                theme.RADIUS_SMALL, theme.ACCENT_FILL, theme.TEXT)
         )
         block.addWidget(listing)
@@ -277,22 +284,26 @@ class FieldForm(QtWidgets.QWidget):
             blocked = listing.blockSignals(True)
             listing.clear()
             for number, (x, y, seconds) in enumerate(steps, 1):
-                text = "%2d.  %4d, %-4d  ·  %.1f giây" % (number, x, y, seconds)
-                if in_danger((x, y)):
-                    # Said in the list, not only in the picker: a point chosen
-                    # last week is read here, and the picker is long closed.
-                    text += "  ·  ⚠ vùng bảng mua"
-                listing.addItem(text)
+                listing.addItem("%d.  %d, %d  ·  %g giây" % (number, x, y, seconds))
             if steps:
                 listing.setCurrentRow(max(0, min(select, len(steps) - 1)))
             listing.blockSignals(blocked)
-            # Tall enough to show every step without an inner scrollbar, up to a
-            # point; past that the list scrolls rather than pushing the page.
-            rows = max(1, min(len(steps), 8))
-            listing.setFixedHeight(12 + rows * (listing.fontMetrics().height() + 12))
+            listing.setFixedHeight(list_height())
             listing.setVisible(bool(steps))
             empty.setVisible(not steps)
             sync()
+
+        def list_height() -> int:
+            """Exactly every row, measured — not a guess per row.
+
+            The guess this replaced came out a few pixels short a row, which
+            is all an inner scrollbar needs to appear.
+            """
+            rows = sum(max(0, listing.sizeHintForRow(i)) for i in range(listing.count()))
+            # frameWidth() already counts the border and the stylesheet's
+            # padding; adding LIST_PADDING again left a blank row's worth.
+            chrome = 2 * listing.frameWidth() + 2
+            return max(rows, listing.fontMetrics().height()) + chrome
 
         def sync() -> None:
             """Buttons and the wait box follow the selected step."""
@@ -313,9 +324,7 @@ class FieldForm(QtWidgets.QWidget):
         def pick(start, title, number: int, skip: int = -1):
             from ui.point_picker import choose_point
 
-            return choose_point(start, self._capture, start, self,
-                                danger=field.danger_zone,
-                                danger_note=field.danger_note, title=title,
+            return choose_point(start, self._capture, start, self, title=title,
                                 marks=marks(skip), label=str(number))
 
         def marks(skip: int):
@@ -333,12 +342,6 @@ class FieldForm(QtWidgets.QWidget):
             shown += [(str(i + 1), (x, y)) for i, (x, y, _wait) in enumerate(steps)
                       if i != skip]
             return shown
-
-        def in_danger(point) -> bool:
-            if not field.danger_zone:
-                return False
-            (left, top), (right, bottom) = field.danger_zone
-            return left <= point[0] <= right and top <= point[1] <= bottom
 
         def on_add() -> None:
             if len(steps) >= tasks.MAX_STEPS:

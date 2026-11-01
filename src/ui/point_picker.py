@@ -27,7 +27,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 import geometry
 import theme
-from geometry import Region
 from ui import controls, preview
 from ui.primitives import Divider, body_text, hbox, label, section_label, vbox
 
@@ -104,11 +103,6 @@ def loupe_corner(anchor: Tuple[float, float], canvas_size: Tuple[int, int],
     left = 0 if anchor[0] > width / 2 else max(0, width - size)
     top = 0 if anchor[1] > height / 2 else max(0, height - size)
     return (left, top)
-
-
-def _inside(point: Tuple[int, int], region) -> bool:
-    (x1, y1), (x2, y2) = region
-    return x1 <= point[0] <= x2 and y1 <= point[1] <= y2
 
 
 class _Canvas(QtWidgets.QWidget):
@@ -319,19 +313,12 @@ class PointPicker(QtWidgets.QDialog):
                  frame_source: Callable[[], Optional[Any]],
                  default: Tuple[int, int],
                  parent: Optional[QtWidgets.QWidget] = None,
-                 danger: Optional[Region] = None,
-                 danger_note: str = "",
                  title: str = "Chọn chỗ tự nhấn",
                  marks: Sequence[Mark] = (),
                  label: str = "") -> None:
         super().__init__(parent)
         self._marks = tuple(marks)
         self._label = label
-        # The danger zone travels with the field that asked for the point, not
-        # with the dialog: what a stray click costs depends on which screen the
-        # point is for. Nothing passed means nothing to warn about.
-        self._danger = danger
-        self._danger_note = danger_note
         self.setWindowTitle(title)
         self.setModal(True)
         self.setStyleSheet("QDialog { background: %s; }" % theme.WINDOW)
@@ -393,11 +380,6 @@ class PointPicker(QtWidgets.QDialog):
         row.addStretch()
         block.addLayout(row)
 
-        # Hidden until it applies. A caution that is always on screen stops
-        # being read as a caution.
-        self._warning = body_text("", 12.5, theme.DANGER, justify=True)
-        self._warning.setVisible(False)
-        block.addWidget(self._warning)
 
         holder.setLayout(block)
         return holder
@@ -501,10 +483,6 @@ class PointPicker(QtWidgets.QDialog):
     def _show_point(self, x: int, y: int) -> None:
         self._point = (x, y)
         self._chosen.setText("%d , %d" % (x, y))
-        risky = self._danger is not None and _inside(self._point, self._danger)
-        self._warning.setVisible(risky)
-        if risky:
-            self._warning.setText(self._danger_note)
 
     # ── result ──────────────────────────────────────────────────────────────
 
@@ -524,8 +502,6 @@ def choose_point(point: Tuple[int, int],
                  frame_source: Callable[[], Optional[Any]],
                  default: Tuple[int, int],
                  parent: Optional[QtWidgets.QWidget] = None,
-                 danger: Optional[Region] = None,
-                 danger_note: str = "",
                  title: str = "Chọn chỗ tự nhấn",
                  marks: Sequence[Mark] = (),
                  label: str = ""
@@ -536,7 +512,7 @@ def choose_point(point: Tuple[int, int],
     ``label`` is the number the point being picked will go by.
     """
     dialog = PointPicker(point, frame_source, default, parent,
-                         danger, danger_note, title, marks, label)
+                         title, marks, label)
     if dialog.exec_() != QtWidgets.QDialog.Accepted:
         return None
     return dialog.point()
