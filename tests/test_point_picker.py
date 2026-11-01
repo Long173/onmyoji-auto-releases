@@ -282,3 +282,40 @@ def test_a_capture_that_raises_is_treated_as_no_window(qt_app):
     assert dialog._canvas is None
     assert dialog.point() == (321, 123)
     dialog.deleteLater()
+
+
+# ── points already chosen ───────────────────────────────────────────────────
+
+
+def rendered(canvas):
+    image = QtGui.QImage(canvas.size(), QtGui.QImage.Format_RGB32)
+    image.fill(QtCore.Qt.black)
+    canvas.render(image)
+    return image
+
+
+def test_marks_are_drawn_where_they_land_with_their_number(qt_app):
+    from ui.point_picker import _Canvas
+
+    pixmap = QtGui.QPixmap(400, 300)
+    pixmap.fill(QtCore.Qt.black)
+    bare = rendered(_Canvas(pixmap, (10, 10), max_size=(400, 300)))
+    marked = rendered(_Canvas(pixmap, (10, 10), max_size=(400, 300),
+                              marks=[("C", (200, 150)), ("1", (300, 100))]))
+
+    for x, y in ((200, 150), (300, 100)):
+        assert QtGui.QColor(marked.pixel(x, y)).lightness() > 200, "no dot at %s" % ((x, y),)
+        assert QtGui.QColor(bare.pixel(x, y)).lightness() < 30
+    # The badge sits up and to the right of the dot, not on it.
+    assert marked.copy(205, 128, 24, 24) != bare.copy(205, 128, 24, 24)
+
+
+def test_without_marks_the_picker_draws_what_it_always_did(qt_app):
+    from ui.point_picker import _Canvas
+
+    pixmap = QtGui.QPixmap(400, 300)
+    pixmap.fill(QtCore.Qt.black)
+    before = rendered(_Canvas(pixmap, (50, 50), max_size=(400, 300)))
+    after = rendered(_Canvas(pixmap, (50, 50), max_size=(400, 300), marks=()))
+
+    assert before == after

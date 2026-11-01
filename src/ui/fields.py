@@ -310,12 +310,29 @@ class FieldForm(QtWidgets.QWidget):
             refresh(select)
             self.changed.emit(field.key, tasks.steps_text(steps))
 
-        def pick(start, title):
+        def pick(start, title, number: int, skip: int = -1):
             from ui.point_picker import choose_point
 
             return choose_point(start, self._capture, start, self,
                                 danger=field.danger_zone,
-                                danger_note=field.danger_note, title=title)
+                                danger_note=field.danger_note, title=title,
+                                marks=marks(skip), label=str(number))
+
+        def marks(skip: int):
+            """Every point already in the round, labelled as the list shows it.
+
+            The task's own POINT field — Event's main point, pressed first — goes
+            by "C"; the list's points by their numbers. The one being re-picked
+            is left out: it is the marker being moved.
+            """
+            from ui.point_picker import MAIN_MARK
+
+            shown = [(MAIN_MARK, tasks.as_point(self._values.get(f.key, f.default),
+                                                f.default))
+                     for f in self._fields if f.kind == tasks.POINT]
+            shown += [(str(i + 1), (x, y)) for i, (x, y, _wait) in enumerate(steps)
+                      if i != skip]
+            return shown
 
         def in_danger(point) -> bool:
             if not field.danger_zone:
@@ -328,7 +345,7 @@ class FieldForm(QtWidgets.QWidget):
                 return
             row = selected()
             start = tuple(steps[row][:2]) if row >= 0 else centre
-            chosen = pick(start, "Thêm điểm %d" % (len(steps) + 1))
+            chosen = pick(start, "Thêm điểm %d" % (len(steps) + 1), len(steps) + 1)
             if chosen is None:
                 return
             # A new step inherits the wait of the one it follows: sequences tend
@@ -341,7 +358,8 @@ class FieldForm(QtWidgets.QWidget):
             row = selected()
             if row < 0:
                 return
-            chosen = pick(tuple(steps[row][:2]), "Chọn lại điểm %d" % (row + 1))
+            chosen = pick(tuple(steps[row][:2]), "Chọn lại điểm %d" % (row + 1),
+                          row + 1, skip=row)
             if chosen is None or tuple(chosen) == tuple(steps[row][:2]):
                 return
             steps[row] = (int(chosen[0]), int(chosen[1]), steps[row][2])

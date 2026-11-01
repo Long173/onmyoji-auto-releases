@@ -377,3 +377,35 @@ def test_the_event_page_carries_the_list(dashboard):
 
     dashboard._show_page("event")
     assert dashboard.findChild(QtWidgets.QListWidget, "pointList") is not None
+
+
+# ── the points already chosen, shown while picking the next ─────────────────
+
+
+def test_adding_a_point_shows_the_main_point_and_the_others_numbered(form):
+    made = form("100,200,1;300,400,1")
+    made.picks.append((10, 20))
+    _buttons(made)["Thêm điểm"].click()
+
+    asked = made.asked[-1]
+    assert asked["marks"] == [("C", MAIN), ("1", (100, 200)), ("2", (300, 400))]
+    assert asked["label"] == "3"
+
+
+def test_repicking_shows_the_others_and_keeps_its_own_number(form):
+    made = form("100,200,1;300,400,1;500,100,1")
+    _listing(made).setCurrentRow(1)
+    _buttons(made)["Chọn lại"].click()
+
+    asked = made.asked[-1]
+    assert asked["marks"] == [("C", MAIN), ("1", (100, 200)), ("3", (500, 100))]
+    assert asked["label"] == "2"
+
+
+def test_the_main_point_shown_is_the_one_on_the_page_now(form):
+    """Moved a moment ago with its own picker: that is where it is shown."""
+    made = form("")
+    made.changed.emit("click_point", (640, 480))
+    _buttons(made)["Thêm điểm"].click()
+
+    assert made.asked[-1]["marks"][0] == ("C", (640, 480))

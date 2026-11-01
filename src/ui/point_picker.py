@@ -21,7 +21,7 @@ picked on — the same convention every other coordinate in `geometry` follows.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Sequence, Tuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -39,6 +39,14 @@ LOUPE_ZOOM = 9
 
 NUDGE = 1
 NUDGE_FAST = 10
+
+# A point already chosen, shown while the next one is picked: (label, point).
+Mark = Tuple[str, Tuple[int, int]]
+# The label of the task's main point among the marks, drawn in the accent
+# colour so it reads apart from the numbered ones.
+MAIN_MARK = "C"
+BADGE_RADIUS = 11
+BADGE_OFFSET = 15
 
 # The picture is never drawn bigger than the frame itself — magnifying the whole
 # thing would only blur it, and the loupe already covers close work.
@@ -112,10 +120,16 @@ class _Canvas(QtWidgets.QWidget):
 
     def __init__(self, pixmap: QtGui.QPixmap, point: Tuple[int, int],
                  max_size: Optional[Tuple[int, int]] = None,
-                 parent: Optional[QtWidgets.QWidget] = None) -> None:
+                 parent: Optional[QtWidgets.QWidget] = None,
+                 marks: Sequence[Mark] = (),
+                 label: str = "") -> None:
         super().__init__(parent)
         self._pixmap = pixmap
         self._point = point
+        # Points already chosen, each with the label it goes by in the list —
+        # so a sequence is built against what is already in it, not from memory.
+        self._marks = tuple(marks)
+        self._label = label
         self._hover: Optional[Tuple[int, int]] = None
         self.setMouseTracking(True)
         self.setCursor(QtCore.Qt.CrossCursor)
@@ -196,9 +210,14 @@ class _Canvas(QtWidgets.QWidget):
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
         painter.drawPixmap(self.rect(), self._pixmap)
+        for text, point in self._marks:
+            self._draw_mark(painter, point, text, main=text == MAIN_MARK)
         if self._hover is not None:
             self._draw_crosshair(painter, self._hover)
         self._draw_marker(painter, self._point)
+        if self._label:
+            self._draw_badge(painter, self._point, self._label,
+                             QtGui.QColor(theme.ACCENT))
         if self._hover is not None:
             self._draw_loupe(painter, self._hover)
         painter.end()
@@ -229,6 +248,39 @@ class _Canvas(QtWidgets.QWidget):
                                  centre + QtCore.QPointF(b, 0))
                 painter.drawLine(centre + QtCore.QPointF(0, a),
                                  centre + QtCore.QPointF(0, b))
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
+
+    def _draw_mark(self, painter: QtGui.QPainter, point: Tuple[int, int],
+                   text: str, main: bool = False) -> None:
+        """A point already in the sequence: a dot where it lands, and its number.
+
+        The number sits beside the dot, not on it, so it never hides what the
+        point is pressing.
+        """
+        centre = self._to_widget(point)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0, 200), 2.0))
+        painter.setBrush(QtGui.QColor(255, 255, 255))
+        painter.drawEllipse(centre, 3.5, 3.5)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
+        fill = QtGui.QColor(theme.ACCENT) if main else QtGui.QColor(20, 20, 24, 225)
+        self._draw_badge(painter, point, text, fill)
+
+    def _draw_badge(self, painter: QtGui.QPainter, point: Tuple[int, int],
+                    text: str, fill: QtGui.QColor) -> None:
+        centre = self._to_widget(point) + QtCore.QPointF(BADGE_OFFSET, -BADGE_OFFSET)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255), 1.4))
+        painter.setBrush(fill)
+        painter.drawEllipse(centre, BADGE_RADIUS, BADGE_RADIUS)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        font = theme.tabular(11)
+        font.setBold(True)
+        painter.setFont(font)
+        box = QtCore.QRectF(centre.x() - BADGE_RADIUS, centre.y() - BADGE_RADIUS,
+                            2 * BADGE_RADIUS, 2 * BADGE_RADIUS)
+        painter.drawText(box, QtCore.Qt.AlignCenter, text)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
 
     def _draw_loupe(self, painter: QtGui.QPainter, point: Tuple[int, int]) -> None:
@@ -269,8 +321,12 @@ class PointPicker(QtWidgets.QDialog):
                  parent: Optional[QtWidgets.QWidget] = None,
                  danger: Optional[Region] = None,
                  danger_note: str = "",
-                 title: str = "Chọn chỗ tự nhấn") -> None:
+                 title: str = "Chọn chỗ tự nhấn",
+                 marks: Sequence[Mark] = (),
+                 label: str = "") -> None:
         super().__init__(parent)
+        self._marks = tuple(marks)
+        self._label = label
         # The danger zone travels with the field that asked for the point, not
         # with the dialog: what a stray click costs depends on which screen the
         # point is for. Nothing passed means nothing to warn about.
@@ -296,6 +352,13 @@ class PointPicker(QtWidgets.QDialog):
             "để chỉnh nốt.",
             13, theme.TEXT_BODY, justify=True,
         ))
+        if self._marks:
+            self._column.addSpacing(8)
+            self._column.addWidget(body_text(
+                "Các điểm đã chọn hiện trên ảnh kèm số thứ tự — C là chỗ tự "
+                "nhấn chính, tool nhấn nó trước rồi tới 1, 2, 3…",
+                12.5, theme.TEXT_MUTED, justify=True,
+            ))
         self._column.addSpacing(14)
 
         self._holder = QtWidgets.QWidget()
@@ -380,7 +443,7 @@ class PointPicker(QtWidgets.QDialog):
             ))
             return
 
-        canvas = _Canvas(pixmap, self._point)
+        canvas = _Canvas(pixmap, self._point, marks=self._marks, label=self._label)
         canvas.hovered.connect(self._on_hover)
         canvas.picked.connect(self._show_point)
         canvas.left.connect(lambda: self._under.setText(""))
@@ -463,11 +526,17 @@ def choose_point(point: Tuple[int, int],
                  parent: Optional[QtWidgets.QWidget] = None,
                  danger: Optional[Region] = None,
                  danger_note: str = "",
-                 title: str = "Chọn chỗ tự nhấn"
+                 title: str = "Chọn chỗ tự nhấn",
+                 marks: Sequence[Mark] = (),
+                 label: str = ""
                  ) -> Optional[Tuple[int, int]]:
-    """Run the picker. Returns the chosen point, or None if cancelled."""
+    """Run the picker. Returns the chosen point, or None if cancelled.
+
+    ``marks`` are points already chosen, drawn numbered on the frame;
+    ``label`` is the number the point being picked will go by.
+    """
     dialog = PointPicker(point, frame_source, default, parent,
-                         danger, danger_note, title)
+                         danger, danger_note, title, marks, label)
     if dialog.exec_() != QtWidgets.QDialog.Accepted:
         return None
     return dialog.point()
