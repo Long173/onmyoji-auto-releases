@@ -417,8 +417,12 @@ class PointPicker(QtWidgets.QDialog):
         self._column.addLayout(self._build_buttons())
         self.setLayout(self._column)
 
-        self._load_frame()
+        # The readout first: the picture is sized from the height of everything
+        # around it, and an empty readout line measures a pixel shorter than one
+        # with digits in it — enough, with the real fonts, to push the dialog a
+        # pixel past the screen.
         self._show_point(*self._point)
+        self._load_frame()
 
     # ── construction ────────────────────────────────────────────────────────
 
