@@ -4,6 +4,16 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.32
+
+### Sửa
+
+- **Chọn điểm trên màn hình**: trên màn hình nhỏ, cửa sổ "Thêm điểm" không
+  còn tràn xuống dưới làm mất nút "Dùng điểm này"; ảnh tự thu cho vừa và
+  bỏ các khoảng trống thừa giữa các đoạn chữ.
+
+---
+
 ## 3.31
 
 ### Mới
