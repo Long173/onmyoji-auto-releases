@@ -92,6 +92,34 @@ def test_the_picture_is_sized_to_fit_the_screen_it_is_shown_on(qt_app):
     assert board.width() <= 561 and board.height() <= 316
 
 
+@pytest.mark.parametrize("screen", [(1366, 728), (1280, 680), (1920, 1040)])
+def test_the_buttons_stay_on_screen_with_marks_and_a_window_choice(
+        qt_app, monkeypatch, screen):
+    """Reported from "Thêm điểm": "Dùng điểm này" ran off the bottom.
+
+    That picker carries more above the picture than the main one does — the
+    note about the numbered marks, the window drop-down — and the room left
+    for the picture used to be a fixed guess that did not know about either.
+    """
+    monkeypatch.setattr(point_picker, "screen_area", lambda: screen)
+    windows = [("A · HWND 0x1", lambda: coloured(40)),
+               ("B · HWND 0x2", lambda: coloured(200))]
+    dialog = PointPicker((10, 10), lambda: None, geometry.EVENT_CLICK_POINT,
+                         title="Thêm điểm 2", marks=[("C", (1030, 549)), ("1", (500, 300))],
+                         label="2", windows=windows)
+    try:
+        assert dialog._canvas is not None
+        # Shown, not just built: style sheets only size the buttons once the
+        # dialog is polished, and a size read before that is ~90px short.
+        dialog.show()
+        qt_app.processEvents()
+        assert dialog.height() + point_picker.WINDOW_FRAME[1] <= screen[1]
+        assert dialog.width() + point_picker.WINDOW_FRAME[0] <= screen[0]
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+
+
 def test_a_click_outside_the_picture_is_pulled_back_inside(qt_app):
     """Rounding at the far edge must not name a pixel that does not exist."""
     board = canvas(qt_app)

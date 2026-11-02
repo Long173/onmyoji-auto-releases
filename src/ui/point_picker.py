@@ -68,24 +68,44 @@ def first_capturable(windows: Sequence[Window]) -> int:
 # The picture is never drawn bigger than the frame itself — magnifying the whole
 # thing would only blur it, and the loupe already covers close work.
 MAX_CANVAS = (1122, 633)
-# Room the dialog needs around the picture: margins, the heading, the readout
-# row and the buttons. Subtracted from the screen before the picture is sized,
-# so the dialog fits on a laptop instead of running off the bottom with its
-# buttons out of reach.
+# Room a bare canvas assumes around itself when nobody measured — only the
+# fallback now. The picker measures what actually sits around its picture: a
+# fixed guess here is what put "Dùng điểm này" off the bottom of the screen in
+# "Thêm điểm", which carries a note and a window drop-down the guess never
+# allowed for.
 FURNITURE = (72, 280)
-# Below this the picture is too small to aim on at all; better a dialog that
-# needs scrolling than one nobody can use.
-MIN_CANVAS = (480, 270)
+# Below this the picture is too small to aim on comfortably. Kept low on
+# purpose: a small picture still works — the arrow keys reach every pixel —
+# while a dialog whose buttons are off the screen does not work at all.
+MIN_CANVAS = (320, 180)
+# What Windows adds outside the layout: the title bar and the frame. Not part
+# of the dialog's own size hint, but on the screen all the same.
+WINDOW_FRAME = (16, 40)
+# What the frame around the picture adds on each side: its 1px layout margin
+# plus its 1px style-sheet border. Counted as one, it left the dialog 2px over.
+PICTURE_BORDER = 2
+# Sizing the picture and wrapping the text depend on each other — a narrower
+# picture wraps the text onto more lines — so they are settled in turns. Two or
+# three is all it ever takes; the cap only stops a pathological case spinning.
+FIT_PASSES = 6
+
+
+def screen_area() -> Optional[Tuple[int, int]]:
+    """The usable desktop — minus the taskbar — of the primary screen."""
+    screen = QtWidgets.QApplication.primaryScreen()
+    if screen is None:
+        return None
+    area = screen.availableGeometry()
+    return (area.width(), area.height())
 
 
 def canvas_cap() -> Tuple[int, int]:
     """How big the picture may be drawn, given the screen it has to fit on."""
-    screen = QtWidgets.QApplication.primaryScreen()
-    if screen is None:
+    area = screen_area()
+    if area is None:
         return MAX_CANVAS
-    area = screen.availableGeometry()
-    return (max(MIN_CANVAS[0], min(MAX_CANVAS[0], area.width() - FURNITURE[0])),
-            max(MIN_CANVAS[1], min(MAX_CANVAS[1], area.height() - FURNITURE[1])))
+    return (max(MIN_CANVAS[0], min(MAX_CANVAS[0], area[0] - FURNITURE[0])),
+            max(MIN_CANVAS[1], min(MAX_CANVAS[1], area[1] - FURNITURE[1])))
 
 
 def loupe_origin(point: Tuple[int, int],
@@ -356,10 +376,13 @@ class PointPicker(QtWidgets.QDialog):
         self._point = point
         self._canvas: Optional[_Canvas] = None
 
+        # The wrapped paragraphs above the picture. Kept so their height can be
+        # set for the width they will really have — see _fit_notes.
+        self._notes: list = []
         self._column = vbox(0, margins=(22, 20, 22, 18))
         self._column.addWidget(section_label("Chọn chỗ tự nhấn"))
         self._column.addSpacing(10)
-        self._column.addWidget(body_text(
+        self._notes.append(body_text(
             "Bấm vào đúng chỗ muốn auto nhấn — thường là nút bắt đầu của event. "
             "Kính lúp phóng to chỗ con trỏ đang chỉ; mũi tên trên bàn phím dịch "
             "từng điểm một, giữ Shift để dịch mười điểm. Nếu màn hình nhỏ, ảnh "
@@ -367,13 +390,15 @@ class PointPicker(QtWidgets.QDialog):
             "để chỉnh nốt.",
             13, theme.TEXT_BODY, justify=True,
         ))
+        self._column.addWidget(self._notes[-1])
         if self._marks:
             self._column.addSpacing(8)
-            self._column.addWidget(body_text(
+            self._notes.append(body_text(
                 "Các điểm đã chọn hiện trên ảnh kèm số thứ tự — C là chỗ tự "
                 "nhấn chính, tool nhấn nó trước rồi tới 1, 2, 3…",
                 12.5, theme.TEXT_MUTED, justify=True,
             ))
+            self._column.addWidget(self._notes[-1])
         self._column.addSpacing(14)
         if len(self._windows) > 1:
             self._column.addLayout(self._build_window_choice())
@@ -481,6 +506,7 @@ class PointPicker(QtWidgets.QDialog):
 
         pixmap = self._grab()
         if pixmap is None:
+            self._fit_notes(0)
             self._holder_box.addWidget(body_text(
                 "Chưa chụp được cửa sổ game. Mở game lên rồi bấm “Chụp lại” — "
                 "hoặc bấm Huỷ và giữ nguyên điểm đang có.",
@@ -488,7 +514,8 @@ class PointPicker(QtWidgets.QDialog):
             ))
             return
 
-        canvas = _Canvas(pixmap, self._point, marks=self._marks, label=self._label)
+        canvas = _Canvas(pixmap, self._point, max_size=self._canvas_cap(),
+                         marks=self._marks, label=self._label)
         canvas.hovered.connect(self._on_hover)
         canvas.picked.connect(self._show_point)
         canvas.left.connect(lambda: self._under.setText(""))
@@ -505,6 +532,55 @@ class PointPicker(QtWidgets.QDialog):
         frame.setLayout(box)
         self._holder_box.addWidget(frame, 0, QtCore.Qt.AlignCenter)
         canvas.setFocus()
+
+    def _fit_notes(self, picture_width: int) -> None:
+        """Give each wrapped paragraph exactly the height it needs.
+
+        A word-wrapped QLabel cannot know its width when asked for its size, so
+        it guesses one — narrow — and answers with the height of that: the
+        help text here claimed 165px and needed 90. The dialog sizes itself
+        from those answers, so it came out ~130px taller than its contents,
+        with gaps between the paragraphs, and on a laptop screen the buttons
+        went off the bottom. Pinned to the height at the real width, the
+        dialog is as tall as what it shows and nothing more.
+        """
+        margins = self._column.contentsMargins()
+        others = self._column.totalSizeHint().width() - margins.left() - margins.right()
+        width = max(picture_width + 2 * PICTURE_BORDER, others)
+        for note in self._notes:
+            note.setFixedHeight(note.heightForWidth(width))
+        self._column.invalidate()
+
+    def _canvas_cap(self) -> Tuple[int, int]:
+        """Room left for the picture once everything else in the dialog is laid out.
+
+        Measured with the picture slot empty, so it counts whatever this
+        particular picker carries — the marks note, the window drop-down — and
+        the help text at the width it will really wrap to. Two passes, because
+        a narrower picture makes a narrower dialog, which wraps the text onto
+        more lines and leaves less height.
+        """
+        area = screen_area()
+        margins = self._column.contentsMargins()
+        side = margins.left() + margins.right() + 2 * PICTURE_BORDER
+        if area is None:
+            self._fit_notes(MAX_CANVAS[0])
+            return MAX_CANVAS
+        # Style sheets — the buttons' padding, the drop-down's height — only
+        # size a widget once it is polished, which normally waits for show().
+        self.ensurePolished()
+        room_w = area[0] - WINDOW_FRAME[0] - side
+        cap = (max(MIN_CANVAS[0], min(MAX_CANVAS[0], room_w)), MAX_CANVAS[1])
+        for _ in range(FIT_PASSES):
+            scale = min(1.0, cap[0] / MAX_CANVAS[0], cap[1] / MAX_CANVAS[1])
+            self._fit_notes(round(MAX_CANVAS[0] * scale))
+            others = self._column.totalSizeHint().height()
+            room_h = area[1] - WINDOW_FRAME[1] - others - 2 * PICTURE_BORDER
+            fitted = (cap[0], max(MIN_CANVAS[1], min(MAX_CANVAS[1], room_h)))
+            if fitted == cap:
+                break
+            cap = fitted
+        return cap
 
     def _grab(self) -> Optional[QtGui.QPixmap]:
         """The game window, normalised to the reference client size.
