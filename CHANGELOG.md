@@ -4,6 +4,17 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.34
+
+### Sửa
+
+- **Kết giới đột phá**: không còn bỏ sót kết giới của người chơi có tên dài.
+- **Kết giới đột phá / Thám hiểm chương**: tự bấm OK ở hộp "Raid log progress
+  will be reset if you refresh" sau khi làm mới danh sách, không còn đứng yên
+  trên bảng Kết giới.
+
+---
+
 ## 3.33
 
 ### Sửa
