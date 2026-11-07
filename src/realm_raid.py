@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 # --- Template images -------------------------------------------------------
 TPL_START = template("RealmRaid", "start.png")
+# The top-right corner of an unbroken card, cut off above where a long name
+# runs to: taller, it scored 0.815 on a card whose owner had an eight-character
+# name, and the loop never attacked it. See tests/test_raid_section_template.py.
 TPL_SECTION = template("RealmRaid", "section.png")
 TPL_FINISHED_BATTLE = template("RealmRaid", "finished1.png")
 TPL_CLAIM_REWARD = template("RealmRaid", "finished2.png")
@@ -69,6 +72,9 @@ TPL_TICKET_ZERO = template("RealmRaid", "ticketZero.png")
 # against 0.381 on an unrelated screen.
 TPL_NO_PASSES = template("RealmRaid", "noPasses.png")
 TPL_IN_BATTLE = template("RealmRaid", "battle.png")
+# The face of an OK button only, ends and top rule cut off: the Refresh
+# confirmation draws its OK with a diamond at each end, and the whole plain
+# button scored 0.872 against it. See tests/test_raid_ok_template.py.
 TPL_OK = template("RealmRaid", "ok.png")
 TPL_FROG = template("RealmRaid", "frog.png")
 TPL_READY_CLICK = template("RealmRaid", "click.png")

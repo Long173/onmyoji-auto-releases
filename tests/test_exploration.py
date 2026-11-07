@@ -1183,6 +1183,22 @@ def test_the_board_is_left_whether_or_not_the_relay_is_on(build):
     assert worker.control.clicks == [geometry.RAID_CLOSE_POINT]
 
 
+def test_a_dialog_over_the_board_is_answered_before_the_x_is_pressed(build):
+    """Reported: the relay raid pressed Refresh, the game asked "Raid log
+    progress will be reset if you refresh. Continue?", and nothing answered it.
+    Leaving the board pressed the X underneath the dialog for three hours. OK is
+    what the raid was asking for anyway, and it is the only way through."""
+    worker = build(seen={exploration.TPL_RAID_BOARD_CLOSE: (1058, 118),
+                         exploration.TPL_RAID_CONFIRM_OK: (660, 383),
+                         exploration.TPL_WORLD_MAP: (990, 417)},
+                   appears_after={exploration.TPL_WORLD_MAP: 2},
+                   gone_after={exploration.TPL_RAID_CONFIRM_OK: 1})
+
+    worker._leave_the_raid_board()
+
+    assert worker.control.clicks == [(660, 383), geometry.RAID_CLOSE_POINT]
+
+
 def test_after_leaving_the_board_the_chapter_is_opened(build):
     worker = build(seen={exploration.TPL_RAID_BOARD_CLOSE: (1058, 118),
                          exploration.TPL_WORLD_MAP: (990, 417)},

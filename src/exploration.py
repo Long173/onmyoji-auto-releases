@@ -167,6 +167,10 @@ TPL_CLAIM_REWARD = template("Exploration", "claimReward.png")
 TPL_RAID_ENTRY = template("Exploration", "raidEntry.png")
 # The red X on the Realm Raid board, shared with the raid task.
 TPL_RAID_BOARD_CLOSE = template("RealmRaid", "exit.png")
+# OK on a dialog drawn over that board — in practice "Raid log progress will be
+# reset if you refresh. Continue?", left open by a relay raid that pressed
+# Refresh. It swallows every click, the X's included. Shared with the raid task.
+TPL_RAID_CONFIRM_OK = template("RealmRaid", "ok.png")
 
 # --- Tuning ----------------------------------------------------------------
 # Thresholds. 0.9 everywhere the measured gap is wide; the world map is the one
@@ -691,11 +695,20 @@ class ExplorationWorker(TaskWorker):
         The board ignores the top-left arrow entirely — pressing it there does
         nothing, measured — so this is the red X on its right-hand edge, pressed
         until the world map answers.
+
+        A dialog over the board is answered first: it takes every click, so
+        pressing the X under it does nothing, and one live run did exactly that
+        for three hours. OK is what the raid that opened it was asking for.
         """
         for _ in range(NAV_ATTEMPTS):
             if self._stop_event.is_set() or self._on_world_map():
                 return
-            self._control.click(self._raid_close)
+            confirm = self._control.find(TPL_RAID_CONFIRM_OK, THRESHOLD)
+            if confirm is not None:
+                logger.info("A dialog is over the raid board — pressing OK first")
+                self._control.click(confirm)
+            else:
+                self._control.click(self._raid_close)
             self._sleep(NAV_SETTLE_SECONDS)
         if not self._on_world_map():
             logger.warning(
