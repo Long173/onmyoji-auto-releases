@@ -4,6 +4,12 @@ Mọi thay đổi đáng kể của **Onmyoji Tool**. Bản mới nhất ở tr�
 
 ---
 
+## 3.35
+
+- Tối ưu logic ném đậu.
+
+---
+
 ## 3.34
 
 ### Sửa
