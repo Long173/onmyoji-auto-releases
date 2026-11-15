@@ -147,6 +147,10 @@ PARADE_ENTER: Point = (978, 528)
 # (555, 460) did not.
 PARADE_PICK_POINTS = ((560, 490), (560, 450), (560, 520), (230, 480), (890, 470))
 PARADE_START: Point = (1020, 525)
+# Back, top left of the pick screen. It always asks "Demon Parade pass won't be
+# returned if you quit. Continue?", and OK on that dialog never moves.
+PARADE_BACK: Point = (45, 42)
+PARADE_QUIT_OK: Point = (679, 355)
 # The result scroll takes a tap anywhere; this corner is never a button.
 PARADE_DISMISS: Point = (60, 600)
 

@@ -311,6 +311,154 @@ Cách đang dùng: bot **tự lưu ảnh dải tên chưa đọc được** vào
 so khớp thật và đỏ ngay khi một tên mới bóp biên về không — hỏng lộ ở test, chứ
 không phải ở bảng thống kê âm thầm cộng mảnh vào nhầm thức thần.
 
+## Đếm SSR/SP trên bảng kết quả: đọc màu chữ độ hiếm
+
+Mục tiêu của ném đậu là mảnh SSR/SP, mà ô SSR lại là ô bộ đọc kém nhất: số
+`x1` quá mảnh để tách nét, tên thì thường chưa có trong thư viện. Trước đây cả
+1.227 trận trong log của một user không ghi nhận được mảnh SSR nào, trong khi
+cache vẫn lưu ảnh ô Kuzunoha và Higanbana (SSR) mà tool không đọc ra.
+
+Mỗi ô có một chữ cái màu ngay bên trái tên (N, R, SR, SSR), và mép phải của
+nó nằm sẵn trong `NAME_BOX`. Đo trên 64 dải tên thật và ảnh mẫu 7 ô (hue
+OpenCV 0–179):
+
+| độ hiếm | màu mép chữ | số ảnh |
+|---|---|---|
+| N | không có điểm ảnh màu (chữ xám) | 17 |
+| R | hue 102–103 | 25 |
+| SR | hue 141–142 | 20 |
+| SSR | hue 17, cam sang vàng | 2 |
+
+Các nhóm cách nhau xa nên dải hue để rộng. **SP chưa từng chụp được**: màu chữ
+SP mà không rơi vào dải nào thì đọc là "không rõ" và ô đó được lưu vào
+`cache/parade-unknown/` với nhãn `rarity-N`, thay vì đoán sang độ hiếm gần nhất.
+
+Đếm SSR/SP chỉ dựa vào màu chữ, không cần tên hay số, nên ô SSR không đọc được
+tên vẫn được tính. Log mỗi vòng ghi `[SSR] ? x? … — SSR/SP: 1`, và thông báo
+cuối có `SSR/SP: n`.
+
+## Quỷ vương: chọn con to nhất, rồi dồn đậu vào nó
+
+Ném trúng quỷ vương đã chọn được gấp ba mảnh, nên mảnh SSR/SP gần như chỉ có
+đường này: chọn đúng con SSR/SP làm quỷ vương, rồi ném trúng nó.
+
+**Chọn** (`parade_pick.py`). Màn chọn chỉ có ba bóng đen, không tên, không độ
+hiếm. Nhưng bóng SSR/SP thường to hơn: trên 205 màn chọn có người gán nhãn, chọn
+bóng to nhất (so với cỡ thường gặp ở đúng cột đó, vì ba cột đứng ở độ sâu khác
+nhau) chọn trúng SSR/SP 9 trên 13 lần có SSR/SP. Bấm cố định một chỗ như trước
+chỉ trúng khoảng một phần ba. SSR/SP chỉ xuất hiện trong khoảng 6% số màn chọn.
+
+**Ném dàn đều.** 250 đậu, 10 đậu một lần là 25 lần ném, và hết đậu là vòng kết
+thúc ngay. Ném theo tốc độ của game thì khoảng 45 giây đã hết, còn cả chục con
+chưa ra, mà quỷ vương ra lúc nào là ngẫu nhiên. Nên trước khi bộ đếm trên cùng về
+0 (con thứ 36 đã vào sân), cứ 2 giây mới ném một lần; về 0 rồi thì xả hết trong 8
+giây.
+
+**Bám quỷ vương** (`parade_boss.py`). Game tự đánh dấu quỷ vương: chữ "Picked"
+xoay vòng quanh nó. Tìm chữ này trên ảnh xám: qua 3.402 khung video, nó bắt
+được chữ ở 154 khung (bản màu bắt được 149), còn ở khung không có chữ thì điểm
+cao nhất là 0,55, dưới ngưỡng 0,6. Mỗi khung tốn khoảng 9 ms. Chữ chỉ cho biết
+*con nào*; chỗ ném lấy từ thân hình của nó (phần khác với sân trống), bám từ khung
+này sang khung khác, đo vận tốc từ chính đường đi của nó (khớp đường thẳng, giới
+hạn 40–200 px/s) và ném đón trước 0,4 giây, vì đậu bay mất một lúc mà con vật vẫn
+đi sang trái. Trước đây là 0,8 giây với mức trần 300 px/s: khi khối hình dính vào
+con đi trước, vận tốc bị phóng đại và cả loạt đậu rơi trúng con đi trước (chữ
+"Miss" hiện trên con đó). Trong lúc bám thì không ném
+con nào khác, và ném nhanh nhất game cho (0,3 giây một lần). Hai luật giữ cho
+việc bám khỏi trượt sang con khác: thân hình phải ở gần chữ (hoặc gần chỗ dự
+đoán), và không được lùi sang phải quá 40 px, vì ai cũng đi sang trái, nên hình
+bên phải là con đi sau. Mất dấu quá 1,5 giây thì quay lại ném dàn đều.
+
+Đo trên giả lập: ném dàn đều trúng quỷ vương 7/20 vòng, thêm phần bám thì 8/16
+vòng (18 ô quỷ vương). Đón trước 0,4 / 0,8 / 1,2 giây chưa thấy khác nhau rõ.
+
+**Con bay mang nhãn "Assist Up" / "Chance Up" / "Got Beans".** Nhãn treo bên dưới
+con bay; tool so ảnh màu (`assistUp.png`, `chanceUp.png`, `gotBeans.png`): nhãn đạt
+từ 0,9 trở lên, còn sân khấu tối đa 0,6 với Assist Up và 0,8 với Got Beans. Chance Up
+cùng màu xanh với Assist Up nhưng tách được nhờ chữ: trên 1121 khung chạy thật, nhãn
+Chance Up đạt trên 0,9, mọi chỗ khác dưới 0,6, và không lần nào hai loại bị nhận
+lẫn. Tìm trước ở nửa độ phân giải rồi so lại ở độ phân giải đầy đủ quanh chỗ tìm
+được, mất khoảng 18 ms cho cả ba loại. Tool ném vào thân con bay (cao hơn nhãn 90 px,
+đón trước 30 px).
+
+- Assist Up, Chance Up: mỗi loại tối đa 2 lần một vòng, cách nhau 1 giây; quỷ vương
+  được ưu tiên hơn.
+- Got Beans: ném liên tục, cách nhau 0,6 giây, đến khi con bay biến mất (trúng là
+  nó rời màn hình, đậu +40), tối đa 15 lần một vòng. Lý do: chạy thật, một lần
+  trượt là tool bỏ luôn, mất 40 đậu. Khi quỷ vương đang được bám, Got Beans và quỷ
+  vương chia nhau, mỗi bên một lượt ném.
+
+**Lời mời Wanted Quest giữa vòng.** Lời mời của người chơi khác có thể hiện lên
+khi đang ném và nằm che sân khấu: chạy thật, nó che quỷ vương suốt một vòng nên
+tool không thấy huy hiệu "Picked" lần nào. Vòng ném giờ cũng tìm lời mời (mỗi giây
+một lần, vì mỗi lần tìm tốn 30–60 ms) và trả lời theo cài đặt chung như ở ngoài vòng.
+
+Đo thật (10 vòng, 15/11): trúng Assist Up thì chữ "Assist Up" hiện ở góc trên, trúng
+Got Beans thì đậu tăng 240 → 280. Chưa thấy Assist Up hay Chance Up làm quỷ vương
+SSR/SP dễ trúng hơn: vòng 4 có cả hai mà 48 lần ném vẫn "Miss".
+
+Lý do: ba quỷ vương SSR/SP đã chơi bị ném 9, 43 và 24 lần mà không lần nào trúng
+("Miss"), trong khi quỷ vương thường trúng 6/8 vòng.
+
+**Freeze không phải hết vòng.** Freeze giữ cả đoàn đứng yên khoảng 9 giây và phủ
+một lớp băng cố định lên mép màn hình, che cả thanh đậu lẫn thanh nút phía
+trên. Mẫu `inRound.png` tụt xuống 0,71 dưới lớp băng, trong khi màn chọn quỷ
+vương cũng đạt 0,67, nên không ngưỡng nào tách được hai màn này. Trước đây tool
+tưởng vòng đã hết, ngừng ném đúng lúc dễ trúng nhất rồi học lại nền khi cả
+đoàn đang đứng trong đó. Mà Freeze xảy ra gần như vòng nào cũng có. Mẫu
+`inRoundFrozen.png` cắt từ chính lớp băng: đạt 1,00 ở cả ba lần Freeze đã chụp,
+và tối đa 0,74 ở mọi màn khác.
+
+**Start không ăn thì chỉ bấm lại Start.** Con đã chọn sáng màu lên, không còn là
+bóng đen. Nếu đo lại, tool sẽ bỏ qua nó và chọn đè một con nhỏ hơn: thực tế đã
+có lần một con 1,6x bị đổi thành con 0,7x.
+
+**Đổi lượt** (đã bỏ khỏi giao diện từ 2026-11-15 vì người dùng khó hiểu ngưỡng; tool luôn chơi mọi màn chọn, code đổi lượt vẫn giữ trong worker). Mảnh
+SSR/SP chỉ đến từ quỷ vương SSR/SP, mà chỉ khoảng 1/16 số màn chọn có SSR/SP.
+Khi có, nó thường to hơn hẳn: trong 13 lần SSR/SP xuất hiện trên 205 màn đã gán
+nhãn, 9 lần được chọn và có cỡ từ 1,5 đến 3,7 lần cỡ thường, phần lớn trên 1,8.
+Nên màn chọn nào có bóng to nhất dưới ngưỡng thì bấm Back, OK ở hộp "pass won't
+be returned", ra thị trấn bấm biển Demon Parade để vào lại. Bản PC là đèn lồng
+treo, BlueStacks là tấm bảng gỗ; đèn lồng đung đưa nên chỉ đạt 0,73–1,00, còn ở
+màn khác thì tối đa 0,46. Thị trấn cũng thoáng hiện giữa các vòng bình thường,
+nên chỉ bấm biển khi vừa đổi lượt. Mỗi lần đổi mất một vé và khoảng 12 giây
+(chơi một vòng mất hơn một phút).
+
+| ngưỡng | màn được chơi | SSR/SP còn giữ | quỷ vương SSR/SP mỗi giờ | vé mỗi giờ |
+|---|---|---|---|---|
+| tắt | 100% | 9/13 | 2,0 | 45 |
+| 1,5x | 51% | 9/13 | 3,3 | 75 |
+| 1,8x | 18% | 8/13 | 5,3 | 135 |
+| 2,0x | 11% | 7/13 | 5,6 | 164 |
+
+Bảng này ước lượng trên 205 màn đã gán nhãn, giả định một vòng chơi mất 80 giây và
+một lần đổi mất 15 giây.
+
+Trên Steam, kích thước đáng tin kém hơn. Hai đợt test có tổng cộng 137 màn chọn, trong
+đó 14 màn có SSR/SP. Con SSR/SP to từ 0,6 đến 3,8 lần cỡ thường, còn con thường mang
+đồ to (tượng cáo, tủ gỗ, ếch khổng lồ) lên tới 1,9–2,8. Ngưỡng 1,8 đã bỏ 6 màn có
+SSR/SP. Gộp cả hai đợt, đổi lượt ở 1,8x chỉ tốt hơn không đổi chừng 1,6 lần (khoảng
+5,2 so với 3,3 quỷ vương SSR/SP mỗi giờ).
+
+**Nhận mặt SSR/SP đã biết** (`parade_rare.py`). Chỉ chạy khi đổi lượt, nên hiện không dùng. Khi bật đổi lượt, tool bấm thử cả ba
+con cho sáng màu (mất thêm khoảng 4 giây), rồi so từng con với thư viện ảnh SSR/SP
+đã sáng màu, theo từng cột. Cách so là đối chiếu từng điểm ảnh trong phạm vi bóng,
+cho lệch 20 px. Kết quả đo:
+
+- Cùng một con ở cùng cột: 0,72–0,99 (89 cặp trên Steam), và 0,85 giữa giả lập với Steam.
+- 848 con thường so với mọi ảnh SSR/SP: tối đa 0,69.
+
+Ngưỡng nhận là 0,78. Khớp thì chọn con đó và chơi, dù nó nhỏ; không khớp thì xét theo
+kích thước như trên. Thư viện nằm ở `screenshots/DemonParade/rare/` (19 ảnh ban đầu),
+cộng thêm `cache/parade-rare/`. Mọi con đã bấm sáng đều được lưu vào
+`cache/parade-pick/`; con nào là SSR/SP thì chuyển file sang `cache/parade-rare/`. Tên
+file (`…_c<cột>_x<trái>_y<trên>.png`) giữ vị trí, còn kênh alpha là bóng của con đó.
+
+**Đếm** (`parade_results.boss_cards`). Ô mảnh của quỷ vương có dấu "Pick" ở góc
+trên bên phải; một vòng có thể có hai ô nếu quỷ vương đi qua hai lần. Dấu này đạt
+0,96–0,98 trên ô quỷ vương, chỗ khác tối đa 0,49. Log mỗi vòng ghi
+`… — boss cards: n, SSR/SP: k`, thông báo cuối có `quỷ vương: n`.
+
 ## Ném vào con hiếm: nhận dạng bằng màu
 
 Ném trúng ai mới đáng, nên vòng lặp phải phân biệt được thức thần. Nhận bằng

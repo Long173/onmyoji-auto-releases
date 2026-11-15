@@ -471,16 +471,16 @@ def build_souls_dungeon(hwnd, control, config, on_finished, on_error):
 BEANS_5 = "5 hạt"
 BEANS_10 = "10 hạt"
 
+# Rerolling (DemonParadeWorker's reroll_below) is not offered: the owner found
+# a size threshold too hard to explain, so every line-up is played.
 PARADE_FIELDS = (
     Field("beans", SEGMENTED, "Mỗi phát ném", (BEANS_5, BEANS_10), BEANS_10),
     Field("rounds", NUMBER, "Dừng sau", default=30, minimum=1, maximum=999,
           disabled_when=("unlimited", True)),
     Field("unlimited", TOGGLE, "Chạy vĩnh viễn", default=False),
-    Field("", NOTE, "Mỗi lượt vào tốn một vé; hết vé thì tự dừng và báo. Đậu "
-                    "250 hạt là ngân sách của riêng từng vòng, hết vòng lại "
-                    "đầy nên không phải lo. Bot rải đậu dọc lối đi thay vì "
-                    "nhắm từng con — đo thật thì rải được 26 mảnh một vòng, "
-                    "còn ném có nhắm ba phát thì không được mảnh nào."),
+    Field("", NOTE, "Mỗi lượt vào tốn một vé; hết vé thì tự dừng và báo. Bot "
+                    "chọn quỷ vương có bóng to nhất (SSR/SP thường to hơn hẳn), "
+                    "rồi dồn đậu vào nó khi nó ra sân."),
 )
 
 

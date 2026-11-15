@@ -105,10 +105,80 @@ def test_a_gold_digit_reads_the_same_as_a_white_one():
     ) > 0.95
 
 
+# ── rarity, read off the coloured letter beside the name ────────────────────
+#
+# Real ribbons, saved by live runs because their names were not yet in the
+# library. The two SSR ones are the only SSR cards ever captured: before this,
+# the tally had no way to say an SSR had been won at all — its "x1" is too thin
+# for the digit reader, and its name was usually new.
+
+
+@pytest.mark.parametrize("ribbon, rarity", [
+    ("ssr-kuzunoha.png", "SSR"),
+    ("ssr-higanbana.png", "SSR"),
+    ("sr-hououka.png", "SR"),
+    ("sr-shiro-mujou.png", "SR"),
+    ("r-kosodenote.png", "R"),
+    ("n-miketsu-frog.png", "N"),
+])
+def test_the_rarity_is_read_off_the_letter_beside_the_name(ribbon, rarity):
+    assert parade_results.ribbon_rarity(load("ribbons/" + ribbon)) == rarity
+
+
+def test_every_card_on_the_scroll_carries_its_rarity():
+    cards = parade_results.read_cards(load("seven-shikigami.png"))
+
+    assert {card.name: card.rarity for card in cards} == {
+        "Koi": "R", "Kusa": "R",
+        "Blue Imp": "N", "Lantern Soul": "N", "Nurikabe": "N",
+        "Hahakigami": "N", "Grave Digger": "N",
+    }
+
+
+def test_a_letter_of_a_colour_never_seen_is_not_guessed():
+    """SP has never been captured. Whatever colour its letter turns out to be,
+    a reading of "no idea" is what lets someone go and look, where a guess at
+    the nearest colour would quietly file it under the wrong rarity."""
+    ribbon = load("ribbons/r-kosodenote.png").copy()
+    width = max(1, round(ribbon.shape[1] * parade_results.BADGE_FRACTION))
+    ribbon[:, :width] = (40, 200, 40)          # a saturated green, BGR
+
+    assert parade_results.ribbon_rarity(ribbon) is None
+
+
+def test_a_card_whose_rarity_is_unknown_is_kept_for_a_look():
+    frame = load("seven-shikigami.png").copy()
+    x, y = next(parade_results._card_boxes())
+    box = parade_results.NAME_BOX
+    width = max(1, round((box[2] - box[0]) * parade_results.BADGE_FRACTION))
+    frame[y + box[1]:y + box[3], x + box[0]:x + box[0] + width] = (40, 200, 40)
+
+    crops = parade_results.unknown_crops(frame)
+
+    assert "rarity-0" in crops
+
+
+def test_the_old_two_field_reading_is_unchanged():
+    cards = parade_results.read_scroll(load("seven-shikigami.png"))
+
+    assert all(len(card) == 2 for card in cards)
+
+
 def test_a_scroll_with_no_shards_reads_as_nothing_won():
     """"Pact shards not received yet." — an ordinary outcome after a round that
     hit nothing, and not to be confused with a scroll full of cards."""
     assert parade_results.read_scroll(load("no-shards.png")) == []
+
+
+def test_an_empty_scroll_on_an_emulator_reads_as_nothing_won():
+    """Live on BlueStacks at 1600x900: every empty scroll ("Pact shards not
+    received yet.") came back as two phantom cards, "[N] ? x2, [N] ? x?", ten
+    rounds running. The banner was matched against the full-size frame, where
+    it is half as big again as the template cut at 1122x633."""
+    frame = load("no-shards.png")
+    big = cv2.resize(frame, (1600, 900), interpolation=cv2.INTER_CUBIC)
+
+    assert parade_results.read_cards(big, 1600 / 1122, 900 / 633) == []
 
 
 def test_the_empty_scroll_is_recognised_outright():

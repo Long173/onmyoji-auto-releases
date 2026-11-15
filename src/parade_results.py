@@ -60,11 +60,12 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import cv2
 import numpy as np
 
+import geometry
 import paths
 from game_control import read_image
 from paths import template
@@ -90,6 +91,9 @@ GLYPH_SIZE = (18, 24)
 # boxes to look like an occupied slot, and it duly produced a phantom card.
 TPL_NO_SHARDS = template("DemonParade", "noShards.png")
 NO_SHARDS_ACCURACY = 0.85
+# The "Pick" mark in the top right of a card holding the boss's shards.
+TPL_BOSS_CARD = template("DemonParade", "pickCard.png")
+BOSS_CARD_ACCURACY = 0.8
 
 # --- Tuning ----------------------------------------------------------------
 # Names are rendered identically every time, so a true match scores 1.000. The
@@ -140,6 +144,38 @@ LETTER_MIN_HEIGHT = 6
 LETTER_MAX_HEIGHT = 20
 LETTER_MAX_WIDTH = 20
 LETTER_MAX_AREA = 200
+
+# --- Rarity -----------------------------------------------------------------
+# Every card has a coloured letter just left of its name — N, R, SR, SSR — and
+# the right edge of it falls inside NAME_BOX. That edge is enough: the letter is
+# one flat colour per rarity, and it is the same part of the ribbon every saved
+# crop already holds, which is what the bands below were measured on.
+#
+# Measured on 64 live ribbons and the seven-card capture, OpenCV hue 0-179:
+#   N    no saturated pixel at all (grey letter)    19 ribbons
+#   R    hue 102-103                                 24
+#   SR   hue 141-142                                 19
+#   SSR  hue 17, orange running into yellow           2
+# Nothing in between, so the bands can be wide.
+#
+# SP has never been captured. Its letter may well fall in none of these, and
+# then it reads as unknown rather than as the nearest guess; see unknown_crops.
+BADGE_FRACTION = 8 / 125          # leftmost 8 of NAME_BOX's 125 pixels
+BADGE_SATURATION = 90
+BADGE_VALUE = 70
+# Fewest coloured pixels that make a letter coloured. N has none; the faintest
+# coloured edge measured had 19.
+BADGE_MIN_COLOURED = 8
+# Share of the coloured pixels that must agree on one band.
+BADGE_AGREEMENT = 0.7
+RARITY_HUE_BANDS = (
+    ("SSR", 0, 35),
+    ("R", 90, 125),
+    ("SR", 125, 165),
+    ("SSR", 165, 180),        # orange shades through red and wraps round
+)
+# The rarities the Demon Parade is played for.
+RARE_RANKS = ("SSR", "SP")
 
 
 def _library_dirs(kind: str):
@@ -340,6 +376,34 @@ def _best_digit(patch: np.ndarray):
     return best_label, best_score
 
 
+def ribbon_rarity(name_patch: np.ndarray) -> Optional[str]:
+    """N, R, SR or SSR, from the coloured letter at the left of a name ribbon.
+
+    None when the letter is coloured but in no band yet measured — the shape an
+    SP card is expected to take until one is captured.
+    """
+    if name_patch is None or name_patch.size == 0:
+        return None
+    width = max(1, round(name_patch.shape[1] * BADGE_FRACTION))
+    hsv = cv2.cvtColor(name_patch[:, :width], cv2.COLOR_BGR2HSV)
+    coloured = (hsv[..., 1] > BADGE_SATURATION) & (hsv[..., 2] > BADGE_VALUE)
+    hues = hsv[..., 0][coloured]
+    if hues.size < BADGE_MIN_COLOURED:
+        return "N"
+    share: Dict[str, float] = {}
+    for rarity, low, high in RARITY_HUE_BANDS:
+        inside = float(((hues >= low) & (hues < high)).sum()) / hues.size
+        share[rarity] = share.get(rarity, 0.0) + inside
+    rarity, best = max(share.items(), key=lambda kv: kv[1])
+    return rarity if best >= BADGE_AGREEMENT else None
+
+
+class Card(NamedTuple):
+    name: Optional[str]
+    count: Optional[int]
+    rarity: Optional[str] = None
+
+
 def _card_boxes(scale_x: float = 1.0, scale_y: float = 1.0):
     for row in range(GRID_ROWS):
         for column in range(GRID_COLUMNS):
@@ -364,17 +428,29 @@ def _is_occupied(name_patch: np.ndarray) -> bool:
 
 
 def read_scroll(frame: np.ndarray, scale_x: float = 1.0, scale_y: float = 1.0):
-    """Every card on the scroll, as ``(name, count)``.
+    """Every card on the scroll, as ``(name, count)``. See :func:`read_cards`."""
+    return [(card.name, card.count)
+            for card in read_cards(frame, scale_x, scale_y)]
 
-    ``name`` is None when the ribbon matches nothing in the library, and
-    ``count`` is None when the glyph does. Either way the card is still
-    returned, so a caller can report that something was won without being able
-    to say what.
+
+def read_cards(frame: np.ndarray, scale_x: float = 1.0,
+               scale_y: float = 1.0) -> List[Card]:
+    """Every card on the scroll: name, shard count and rarity.
+
+    ``name`` is None when the ribbon matches nothing in the library, ``count``
+    when the glyph does, and ``rarity`` when the letter is a colour not yet
+    measured. Any of them can be missing and the card is still returned, so a
+    caller can report that something was won without being able to say all of
+    what.
+
+    Rarity is the one that matters for the parade: it is read off a colour, not
+    a library, so it comes out right on a shikigami nobody has labelled yet —
+    which is most SSRs, since they rarely come round twice.
     """
     if says_no_shards(frame):
         return []
 
-    found: List[Tuple[Optional[str], Optional[int]]] = []
+    found: List[Card] = []
     for origin in _card_boxes(scale_x, scale_y):
         name_patch = _crop(frame, origin, NAME_BOX, scale_x, scale_y)
         if not _is_occupied(name_patch):
@@ -398,7 +474,7 @@ def read_scroll(frame: np.ndarray, scale_x: float = 1.0, scale_y: float = 1.0):
                 "Unreadable shard count for %s (best %r at %.3f)",
                 name or "?", label, count_score,
             )
-        found.append((name, count))
+        found.append(Card(name, count, ribbon_rarity(name_patch)))
     return found
 
 
@@ -410,10 +486,45 @@ def says_no_shards(frame: np.ndarray) -> bool:
     except Exception:
         logger.warning("No noShards template", exc_info=True)
         return False
+    # The banner was cut at the reference size. On an emulator the frame is
+    # bigger — 1600x900 on BlueStacks — and matched as it came, every empty
+    # scroll read as two phantom cards instead of none.
+    reference = tuple(geometry.REFERENCE_CLIENT_SIZE)
+    if (frame.shape[1], frame.shape[0]) != reference:
+        frame = cv2.resize(frame, reference, interpolation=cv2.INTER_AREA)
     if banner.shape[0] > frame.shape[0] or banner.shape[1] > frame.shape[1]:
         return False
     result = cv2.matchTemplate(frame, banner, cv2.TM_CCOEFF_NORMED)
     return float(result.max()) >= NO_SHARDS_ACCURACY
+
+
+def boss_cards(frame: np.ndarray) -> int:
+    """How many cards on the scroll carry the boss's "Pick" mark.
+
+    The boss's shards come on their own card, marked "Pick" in its top right,
+    and a round can hand out more than one — the boss walks by twice in some
+    parades. This is the one measure of whether the beans found the boss: the
+    names and counts say what was won, not which of it came from aiming.
+    Scored 0.96 to 0.98 on boss cards and at most 0.49 on anything else.
+    """
+    try:
+        mark = read_image(TPL_BOSS_CARD)
+    except Exception:
+        logger.warning("No pickCard template", exc_info=True)
+        return 0
+    reference = tuple(geometry.REFERENCE_CLIENT_SIZE)
+    if (frame.shape[1], frame.shape[0]) != reference:
+        frame = cv2.resize(frame, reference, interpolation=cv2.INTER_AREA)
+    result = cv2.matchTemplate(frame, mark, cv2.TM_CCOEFF_NORMED)
+    height, width = mark.shape[:2]
+    found = 0
+    while True:
+        _, score, _, (x, y) = cv2.minMaxLoc(result)
+        if score < BOSS_CARD_ACCURACY:
+            return found
+        found += 1
+        # The same mark scores high a pixel or two either side of itself.
+        result[max(0, y - height):y + height, max(0, x - width):x + width] = -1
 
 
 def unknown_crops(frame: np.ndarray, scale_x: float = 1.0, scale_y: float = 1.0):
@@ -427,6 +538,10 @@ def unknown_crops(frame: np.ndarray, scale_x: float = 1.0, scale_y: float = 1.0)
         _label, score = _best_name(name_patch)
         if score < NAME_ACCURACY:
             out["name-%d" % index] = name_patch
+        if ribbon_rarity(name_patch) is None:
+            # Most likely the first SP ever seen. The name ribbon carries the
+            # letter's edge, which is what the rarity bands are measured on.
+            out["rarity-%d" % index] = name_patch
         count_patch = _crop(frame, origin, DIGIT_BOX, scale_x, scale_y)
         _label, score = _best_digit(count_patch)
         if score < COUNT_ACCURACY:
